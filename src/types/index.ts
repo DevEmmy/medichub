@@ -1,0 +1,202 @@
+export type Role = 'patient' | 'hospital' | 'admin'
+
+export interface User {
+  id: string
+  email: string
+  passwordHash: string
+  role: Role
+  name: string
+  phone?: string
+  createdAt: string
+}
+export type PublicUser = Omit<User, 'passwordHash'>
+
+export interface PatientProfile {
+  userId: string
+  city?: string
+  dateOfBirth?: string
+  gender?: string
+  onboarded: boolean
+}
+
+export type Verification = 'draft' | 'pending' | 'under_review' | 'verified' | 'needs_attention' | 'rejected'
+export type HospitalType = 'Teaching' | 'Federal Medical Centre' | 'General' | 'Specialist' | 'Private' | 'Mission' | 'Primary Care'
+
+export interface DayHours { day: number; open: string; close: string; closed: boolean }
+
+export interface Hospital {
+  id: string
+  slug: string
+  name: string
+  type: HospitalType
+  tagline: string
+  description: string
+  address: string
+  area: string
+  city: string
+  state: string
+  lat: number
+  lng: number
+  phone: string
+  emergencyPhone: string
+  email: string
+  website?: string
+  socials: { label: string; url: string }[]
+  hue: number
+  logo?: string
+  cover?: string
+  is24h: boolean
+  hours: DayHours[]
+  facilities: string[]
+  specialties: string[]
+  verification: Verification
+  verificationNote?: string
+  registration: { cacNumber: string; licenseNumber: string; licensingBody: string; yearEstablished: string; bedCount: number }
+  admin: { name: string; title: string; email: string; phone: string }
+  autoConfirm: boolean
+  /** Listed from public records of federal health institutions; not onboarded, status is demo data */
+  publicRecord?: boolean
+  ownerUserId: string
+  submittedAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface HospitalStaff { id: string; hospitalId: string; userId: string; role: 'owner' | 'staff' }
+
+export interface Department { id: string; hospitalId: string; name: string; head?: string; phone?: string; status: EmergencyLevel }
+export interface Service {
+  id: string
+  hospitalId: string
+  name: string
+  category: string
+  departmentId?: string
+  durationMins: number
+  fee?: number
+  bookable: boolean
+  active: boolean
+}
+export interface Doctor { id: string; hospitalId: string; name: string; specialty: string; departmentId?: string; available: boolean }
+
+export type EmergencyLevel = 'open' | 'busy' | 'closed'
+export type Availability = 'available' | 'limited' | 'unavailable'
+export type OverallCapacity = 'available' | 'moderate' | 'high' | 'full'
+export type EmergencyCapacity = 'available' | 'limited' | 'full'
+
+export interface HospitalStatus {
+  hospitalId: string
+  emergency: EmergencyLevel
+  oxygen: Availability
+  pharmacy: Availability
+  laboratory: Availability
+  ambulance: Availability
+  maternity: Availability
+  theatre: Availability
+  bloodBank: Availability
+  updatedAt: string
+}
+export type ResourceKey = 'oxygen' | 'pharmacy' | 'laboratory' | 'ambulance' | 'maternity' | 'theatre' | 'bloodBank'
+
+export interface HospitalCapacity {
+  hospitalId: string
+  overall: OverallCapacity
+  emergency: EmergencyCapacity
+  bedsTotal: number
+  bedsAvailable: number
+  icuAvailable: number
+  updatedAt: string
+}
+
+export interface Slot { id: string; hospitalId: string; serviceId: string; date: string; time: string; capacity: number; booked: number }
+
+export type BookingStatus = 'pending' | 'confirmed' | 'checked_in' | 'in_consultation' | 'completed' | 'cancelled' | 'no_show'
+export interface Booking {
+  id: string
+  ref: string
+  token: string
+  patientId: string
+  patientName: string
+  patientPhone?: string
+  hospitalId: string
+  serviceId: string
+  slotId: string
+  date: string
+  time: string
+  reason?: string
+  status: BookingStatus
+  createdAt: string
+  updatedAt: string
+}
+export interface BookingEvent { id: string; bookingId: string; status: BookingStatus; at: string; by: 'patient' | 'hospital' | 'system'; note?: string }
+
+export interface HealthProfile {
+  userId: string
+  bloodGroup: string
+  genotype: string
+  allergies: string[]
+  conditions: string[]
+  medications: { name: string; dose: string }[]
+  heightCm?: number
+  weightKg?: number
+  notes: string
+  updatedAt: string
+}
+export type HealthEventType = 'appointment' | 'visit' | 'vaccination' | 'lab' | 'medication' | 'profile'
+export interface HealthEvent { id: string; userId: string; type: HealthEventType; title: string; detail?: string; date: string; place?: string }
+
+export interface EmergencyContact { id: string; userId: string; name: string; relationship: string; phone: string; primary: boolean }
+
+export type NotificationType = 'booking' | 'status' | 'verification' | 'profile' | 'announcement' | 'system'
+export interface Notification { id: string; userId: string; type: NotificationType; title: string; body: string; link?: string; read: boolean; createdAt: string }
+
+export type AnnouncementSeverity = 'info' | 'warning' | 'critical'
+export interface Announcement { id: string; hospitalId: string; title: string; body: string; severity: AnnouncementSeverity; active: boolean; createdAt: string }
+
+export interface HospitalDocument { id: string; hospitalId: string; name: string; kind: string; size: number; uploadedAt: string; status: 'submitted' | 'accepted' | 'needs_attention' }
+
+export interface PasswordReset { token: string; userId: string; expiresAt: string; used: boolean }
+
+export interface Session { userId: string; createdAt: string }
+
+// ------- Static content -------
+export interface FirstAidVideo {
+  id: string
+  title: string
+  description: string
+  emergencyType: string
+  youtubeId?: string
+  sourceUrl: string
+  sourceOrg: string
+  durationLabel: string
+  safetyNote: string
+  hue: number
+}
+export interface EmergencyGuide {
+  slug: string
+  title: string
+  short: string
+  icon: string
+  severity: 'critical' | 'serious'
+  call112When: string
+  doNow: string[]
+  dont: string[]
+  videoIds: string[]
+  keywords: string[]
+}
+export interface HealthResource { slug: string; title: string; summary: string; icon: string; videoIds: string[]; doNow: string[]; dont: string[]; call112When: string }
+export interface Meal {
+  id: string
+  name: string
+  local?: string
+  serving: string
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+  fiber: number
+  mealType: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack' | 'Drink'
+  diet: string[]
+  note: string
+  hue: number
+}
+export interface Exercise { id: string; name: string; category: 'Walking' | 'Stretching' | 'Mobility' | 'Strength' | 'Cardio'; level: 'Beginner' | 'Intermediate'; minutes: number; summary: string; steps: string[] }

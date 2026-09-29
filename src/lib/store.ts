@@ -1,0 +1,134 @@
+/**
+ * Medic Hub local data engine.
+ *
+ * A small relational store that mirrors the Postgres schema in /supabase/schema.sql.
+ * - Persists to localStorage (per browser)
+ * - Broadcasts every write to other open tabs (BroadcastChannel + storage event)
+ *   so hospital updates appear instantly on patient screens — the same contract
+ *   Supabase Realtime provides in production.
+ * - All reads/writes go through /src/services, which enforce the access policies
+ *   that Row Level Security enforces on the server.
+ */
+import type {
+  User, PatientProfile, Hospital, HospitalStaff, Department, Service, Doctor, HospitalStatus, HospitalCapacity,
+  Slot, Booking, BookingEvent, HealthProfile, HealthEvent, EmergencyContact, Notification, Announcement,
+  HospitalDocument, PasswordReset,
+} from '../types'
+
+export interface Tables {
+  users: User[]
+  patient_profiles: PatientProfile[]
+  hospitals: Hospital[]
+  hospital_staff: HospitalStaff[]
+  hospital_departments: Department[]
+  hospital_services: Service[]
+  hospital_doctors: Doctor[]
+  hospital_status: HospitalStatus[]
+  hospital_capacity: HospitalCapacity[]
+  hospital_slots: Slot[]
+  bookings: Booking[]
+  booking_events: BookingEvent[]
+  health_profiles: HealthProfile[]
+  health_events: HealthEvent[]
+  emergency_contacts: EmergencyContact[]
+  notifications: Notification[]
+  hospital_announcements: Announcement[]
+  hospital_documents: HospitalDocument[]
+  password_resets: PasswordReset[]
+}
+export type TableName = keyof Tables
+
+const KEY = 'medichub.db.v5'
+const SCHEMA_VERSION = 5
+
+type Listener = (tables: TableName[], remote: boolean) => void
+
+function safeGet(key: string): string | null {
+  try { return localStorage.getItem(key) } catch { return null }
+}
+function safeSet(key: string, value: string) {
+  try { localStorage.setItem(key, value); return true } catch { return false }
+}
+
+class Store {
+  private data!: Tables
+  private listeners = new Set<Listener>()
+  private channel: BroadcastChannel | null = null
+  private seedFn: (() => Tables) | null = null
+  private maintain: ((t: Tables) => boolean) | null = null
+  ready = false
+
+  init(seed: () => Tables, maintain: (t: Tables) => boolean) {
+    this.seedFn = seed
+    this.maintain = maintain
+    this.load()
+    try {
+      this.channel = new BroadcastChannel('medichub-realtime')
+      this.channel.onmessage = (e) => this.onRemote(e.data?.tables ?? [])
+    } catch { /* not supported */ }
+    try {
+      window.addEventListener('storage', (e) => { if (e.key === KEY) this.onRemote([]) })
+    } catch { /* ignore */ }
+    this.ready = true
+  }
+
+  private load() {
+    const raw = safeGet(KEY)
+    let parsed: (Tables & { __v?: number }) | null = null
+    if (raw) { try { parsed = JSON.parse(raw) } catch { parsed = null } }
+    if (!parsed || parsed.__v !== SCHEMA_VERSION) {
+      this.data = this.seedFn!()
+      this.persist()
+    } else {
+      delete parsed.__v
+      this.data = parsed
+    }
+    if (this.maintain && this.maintain(this.data)) this.persist()
+  }
+
+  private onRemote(tables: TableName[]) {
+    const raw = safeGet(KEY)
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw)
+      delete parsed.__v
+      this.data = parsed
+      this.emit(tables.length ? tables : (Object.keys(this.data) as TableName[]), true)
+    } catch { /* ignore */ }
+  }
+
+  private persist() {
+    safeSet(KEY, JSON.stringify({ ...this.data, __v: SCHEMA_VERSION }))
+  }
+
+  private emit(tables: TableName[], remote: boolean) {
+    this.listeners.forEach((l) => l(tables, remote))
+  }
+
+  subscribe(l: Listener) {
+    this.listeners.add(l)
+    return () => { this.listeners.delete(l) }
+  }
+
+  select<T extends TableName>(table: T): Tables[T] {
+    return this.data[table]
+  }
+
+  /** Mutate one or more tables atomically; persists and broadcasts. */
+  write(tables: TableName[], fn: (d: Tables) => void) {
+    fn(this.data)
+    this.persist()
+    this.emit(tables, false)
+    try { this.channel?.postMessage({ tables }) } catch { /* ignore */ }
+  }
+
+  reset() {
+    this.data = this.seedFn!()
+    if (this.maintain) this.maintain(this.data)
+    this.persist()
+    this.emit(Object.keys(this.data) as TableName[], false)
+    try { this.channel?.postMessage({ tables: Object.keys(this.data) }) } catch { /* ignore */ }
+  }
+}
+
+export const db = new Store()
