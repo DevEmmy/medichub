@@ -1,0 +1,1 @@
+import{u as o,e as a}from"./index-BqDAMpAZ.js";import{g as i}from"./hospitals-Cl2A5MaR.js";const l=["hospitals","hospital_status","hospital_capacity","hospital_services","hospital_departments","hospital_doctors","hospital_announcements","hospital_slots"];function n(){const{hospitalId:s}=o(),{data:t}=a(()=>s?i(s):null,[...l],[s]);return{h:t??null,hospitalId:s}}export{n as u};
