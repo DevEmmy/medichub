@@ -1,4 +1,5 @@
 import { FreshnessNote } from './FreshnessNote'
+import { DEMO } from '../../config'
 import { Stars } from '../ui/Stars'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
@@ -43,11 +44,11 @@ export function HospitalCard({ h, distance, highlight, onHover }: { h: HospitalV
         <p className="mt-1 flex items-center gap-1.5 text-[12.5px]">{h.rating.count ? <><Stars value={h.rating.avg} size={13} /><strong className="text-ink tabular">{h.rating.avg.toFixed(1)}</strong><span className="text-slate-500">({h.rating.count} verified {h.rating.count === 1 ? 'visit' : 'visits'})</span></> : <span className="text-slate-400">No ratings yet</span>}</p>
 
         <FreshnessNote h={h} className="mt-3" />
-        <dl className="mt-2 grid grid-cols-3 gap-2">
+        {(DEMO || !h.publicRecord) && <dl className="mt-2 grid grid-cols-3 gap-2">
           <div><dt className="flex items-center gap-1 text-[11px] font-medium text-slate-500"><Siren size={11} /> Emergency</dt><dd className="mt-1"><Pill tone={emergencyTone(h.status.emergency)} size="sm">{emergencyLabel(h.status.emergency)}</Pill></dd></div>
           <div><dt className="flex items-center gap-1 text-[11px] font-medium text-slate-500"><Activity size={11} /> Capacity</dt><dd className="mt-1"><Pill tone={capTone(h.capacity.overall)} size="sm">{capLabel(h.capacity.overall)}</Pill></dd></div>
           <div><dt className="flex items-center gap-1 text-[11px] font-medium text-slate-500"><Wind size={11} /> Oxygen</dt><dd className="mt-1"><Pill tone={availTone(h.status.oxygen)} size="sm">{availLabel(h.status.oxygen)}</Pill></dd></div>
-        </dl>
+        </dl>}
 
         <div className="mt-3.5 flex flex-wrap gap-1.5">
           {h.specialties.slice(0, 3).map((s) => <span key={s} className="rounded-md bg-canvas px-2 py-0.5 text-[12px] font-medium text-slate-600 ring-1 ring-line">{s}</span>)}

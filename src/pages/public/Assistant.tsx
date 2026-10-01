@@ -70,8 +70,8 @@ export default function Assistant() {
       const err = e as { code?: string; text?: string }
       if (err.code === 'cancelled') update({ content: err.text || '…' })
       else if (err.code === 'not_granted' || err.code === 'sampling_disabled') { setAvailable(false); update({ content: `${t('ai.unavailable')}\n\n${localAnswer(question)}`, source: 'guide' }) }
-      else if (err.code === 'rate_limited') update({ content: (err.text ? err.text + '\n\n' : '') + 'Medic AI is busy right now. Try again in a minute. If this is an emergency, call 112.', error: !err.text })
-      else if (err.code === 'refused') update({ content: 'Medic AI can’t answer that. If you or someone else is in danger, call 112 now.', error: true })
+      else if (err.code === 'rate_limited') update({ content: (err.text ? err.text + '\n\n' : '') + 'Medic AI is busy right now. Try again in a minute. If this is an emergency, call the nearest hospital emergency unit.', error: !err.text })
+      else if (err.code === 'refused') update({ content: 'Medic AI can’t answer that. If you or someone else is in danger, call the nearest hospital emergency unit now.', error: true })
       else update({ content: err.text ? err.text + '\n\n(Answer interrupted.)' : `${t('ai.unavailable')}\n\n${localAnswer(question)}`, source: err.text ? 'ai' : 'guide' })
     } finally { setBusy(false); ctl.current = null }
   }
@@ -106,7 +106,7 @@ export default function Assistant() {
                 {m.role === 'assistant' && m.redFlag && (
                   <div className="mb-3 rounded-2xl bg-danger-50 p-3 ring-1 ring-danger-100">
                     <p className="flex items-center gap-2 text-[14px] font-semibold text-danger-700"><Siren size={16} /> {t('ai.redflag')}</p>
-                    <div className="mt-2 flex flex-wrap gap-2"><a href="tel:112" className="btn btn-danger btn-sm">{t('em.call')}</a><Link to="/find?emergency=1" className="btn btn-secondary btn-sm">{t('em.findHospitals')}</Link></div>
+                    <div className="mt-2 flex flex-wrap gap-2"><Link to="/emergency" className="btn btn-danger btn-sm">{t('em.call')}</Link><Link to="/find?emergency=1" className="btn btn-secondary btn-sm">{t('em.findHospitals')}</Link></div>
                   </div>
                 )}
                 {m.role === 'assistant' && !m.content ? <span className="flex items-center gap-2 text-slate-500"><span className="flex gap-1">{[0, 1, 2].map((i) => <motion.span key={i} className="h-1.5 w-1.5 rounded-full bg-slate-400" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: i * 0.15 }} />)}</span>{t('ai.thinking')}</span> : <Rich text={m.content} />}

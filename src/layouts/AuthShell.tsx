@@ -18,7 +18,7 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
             <li className="flex gap-3"><ShieldCheck size={19} className="mt-0.5 text-brand-300" /> Your health information stays private to you.</li>
           </ul>
         </div>
-        <p className="relative mt-10 flex items-center gap-2 text-[13px] text-white/50"><Siren size={15} /> In an emergency, call 112. You don't need an account.</p>
+        <p className="relative mt-10 flex items-center gap-2 text-[13px] text-white/50"><Siren size={15} /> In an emergency, call the nearest hospital emergency unit. You don't need an account.</p>
       </aside>
       <div className="flex min-h-[100dvh] flex-col px-4 py-6 sm:px-8 lg:col-start-2 xl:col-start-2">
         <div className="flex items-center justify-between xl:hidden"><Logo /><Link to="/emergency" className="inline-flex items-center gap-1.5 rounded-full bg-danger-50 px-3 py-2 text-[13px] font-semibold text-danger-700"><Siren size={15} /> Emergency</Link></div>

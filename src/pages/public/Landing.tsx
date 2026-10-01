@@ -171,7 +171,7 @@ export default function Landing() {
             { icon: MapPin, t: 'Nearest right hospital', d: 'Filter by specialty, open now, emergency and oxygen. Distance from where you are.' },
             { icon: Activity, t: 'Live from the hospital', d: 'Emergency status, capacity, oxygen and pharmacy, updated by hospital staff.' },
             { icon: CalendarCheck, t: 'Reserve your place', d: 'Pick a service and a time. Get a QR pass the front desk can scan.' },
-            { icon: HeartPulse, t: 'Ready for emergencies', d: 'Call 112, find emergency care and follow first-aid steps with video.' },
+            { icon: HeartPulse, t: 'Ready for emergencies', d: 'Call the nearest emergency unit, find emergency care and follow first-aid steps with video.' },
           ].map((f) => (
             <div key={f.t} className="card-flat p-5">
               <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-50 text-brand-700"><f.icon size={20} /></span>
@@ -188,7 +188,7 @@ export default function Landing() {
           <div>
             <p className="inline-flex items-center gap-2 text-[13px] font-semibold text-danger-700"><Siren size={16} /> Emergency mode</p>
             <h2 id="em-h" className="mt-3 text-[30px] font-semibold leading-tight">One tap to a calmer, focused screen.</h2>
-            <p className="mt-3 max-w-md text-[15px] leading-relaxed text-slate-700">Large buttons, plain steps and short videos from the British Red Cross and St John Ambulance. The first thing you see is <strong>Call 112</strong>, Nigeria's national emergency number.</p>
+            <p className="mt-3 max-w-md text-[15px] leading-relaxed text-slate-700">Large buttons, plain steps and short videos from the British Red Cross and St John Ambulance. The first thing you see is <strong>Call the nearest hospital emergency unit</strong>, Nigeria's national emergency number.</p>
             <div className="mt-6 flex flex-wrap gap-3"><button onClick={(e) => enterEmergency(e)} className="btn btn-danger"><Siren size={17} /> Open emergency mode</button><Link to="/triage" className="btn btn-secondary"><Stethoscope size={17} /> Check symptoms</Link></div>
           </div>
           <ul className="grid grid-cols-2 gap-2.5 self-center">
@@ -226,7 +226,7 @@ export default function Landing() {
       <footer className="border-t border-line bg-white/60">
         <div className="container-app flex flex-col gap-4 py-10 text-[13px] text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3"><Logo compact /><span>{DEMO ? 'Medic Hub · Hackathon build. Hospitals listed from public records show demo status.' : `© ${new Date().getFullYear()} Medic Hub · Hospital information is provided by each hospital.`}</span></div>
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1"><span>Team Medic Hub · <a href="mailto:medichubnigeria@gmail.com" className="font-medium text-ink hover:underline">medichubnigeria@gmail.com</a> · <span className="select-all">07042744090</span></span><span className="flex items-center gap-1.5"><Clock size={14} /> In an emergency, call <strong className="text-ink">112</strong>.</span></p>
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1"><span>Team Medic Hub · <a href="mailto:medichubnigeria@gmail.com" className="font-medium text-ink hover:underline">medichubnigeria@gmail.com</a> · <span className="select-all">07042744090</span></span><span className="flex items-center gap-1.5"><Clock size={14} /> In an emergency, call the nearest hospital emergency unit.</span></p>
         </div>
       </footer>
     </div>

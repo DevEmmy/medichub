@@ -35,7 +35,7 @@ export default function Onboarding() {
     documents: [], admin: { name: user?.name ?? '', title: 'Medical Director', email: user?.email ?? '', phone: user?.phone ?? '' },
   })
   const [docFiles, setDocFiles] = useState<Record<string, File | null>>({})
-  if (hospitalId && step < 7) return <Navigate to="/hospital" replace />
+  if (hospitalId && step < 6 && !busy) return <Navigate to="/hospital" replace />
   const set = (p: Partial<OnboardingInput>) => setF((x) => ({ ...x, ...p }))
 
   const validate = (s: number) => {

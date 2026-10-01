@@ -53,7 +53,7 @@ export function NearestEmergency() {
           {nearerNoLine && <p className="mt-2 text-[12px] leading-relaxed text-slate-600"><strong className="text-ink">{nearerNoLine.h.name}</strong> is closer ({fmtKm(nearerNoLine.km!)}) but hasn't given Medic Hub a direct emergency line yet. <a className="font-semibold text-brand-700 underline" href={directionsUrl(nearerNoLine.h.lat, nearerNoLine.h.lng, location)} target="_blank" rel="noopener noreferrer">Directions</a></p>}
         </>
       ) : (
-        <p className="mt-2 text-[14px] text-slate-600">No hospital with a direct emergency line is open on Medic Hub right now. Use 112 below or <Link to="/find?emergency=1" className="font-semibold text-brand-700 underline">find the nearest emergency department</Link>.</p>
+        <p className="mt-2 text-[14px] text-slate-600">No hospital with a direct emergency line is open on Medic Hub right now. <Link to="/find?emergency=1" className="font-semibold text-brand-700 underline">find the nearest emergency department</Link>.</p>
       )}
     </section>
   )

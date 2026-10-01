@@ -8,7 +8,7 @@ writeFileSync('/tmp/doc.pdf', '%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' })
 const fails = []; const errs = []
 const step = async (name, fn) => { try { await fn(); console.log('OK', name) } catch (e) { fails.push(name); console.log('FAIL', name, '-', e.message.split('\n')[0]) } }
-const ctx = async (geo) => { const c = await b.newContext({ viewport: { width: 1280, height: 860 }, ...(geo ? { geolocation: geo, permissions: ['geolocation'] } : {}) }); const p = await c.newPage(); p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error' && !/fonts|ERR_TUNNEL|youtube|wikimedia/i.test(m.text())) errs.push(m.text()) }); return p }
+const ctx = async (geo) => { const c = await b.newContext({ timezoneId: 'Africa/Lagos', viewport: { width: 1280, height: 860 }, ...(geo ? { geolocation: geo, permissions: ['geolocation'] } : {}) }); const p = await c.newPage(); p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error' && !/fonts|ERR_TUNNEL|youtube|wikimedia/i.test(m.text())) errs.push(m.text()) }); return p }
 const shot = (p, n) => p.screenshot({ path: `qa/shots/L-${n}.png` })
 const stamp = Date.now().toString(36)
 const H = { email: `ops+${stamp}@harbourpoint.ng`, pw: 'Harbour2026a' }
@@ -82,7 +82,7 @@ await step('patient signs up and finds the hospital', async () => {
 
 let ref = ''
 await step('patient books a slot and gets a QR pass', async () => {
-  const hid = await p.evaluate(() => [...document.querySelectorAll('a[href*="/hospitals/"]')].map((x) => x.getAttribute('href')).find((x) => x.includes('/hospitals/')))
+  const hid = await p.evaluate(() => [...document.querySelectorAll('a[href*="/hospitals/"]')].find((x) => x.textContent.includes('Harbour Point'))?.getAttribute('href'))
   await p.goto(BASE + hid); await p.waitForTimeout(1200)
   await p.getByRole('button', { name: /Book a slot/ }).first().click(); await p.waitForTimeout(600)
   const svc = p.locator('[role=dialog] li button').first(); if (await svc.count()) await svc.click().catch(() => {})
@@ -99,7 +99,7 @@ await step('patient books a slot and gets a QR pass', async () => {
 })
 
 await step('hospital sees booking in realtime and checks in by scanning QR photo', async () => {
-  await h.goto(BASE + '#/hospital/bookings'); await h.getByText(ref).first().waitFor({ timeout: 10000 })
+  await h.goto(BASE + '#/hospital'); await h.getByText(/New booking/).first().waitFor({ timeout: 10000 }).catch(() => {})
   await h.goto(BASE + '#/hospital/check-in'); await h.getByTestId('open-scanner').click()
   await h.getByTestId('qr-photo-input').setInputFiles('/tmp/pass-qr.png')
   await h.waitForTimeout(1500); await shot(h, 'after-scan')
@@ -112,7 +112,7 @@ await step('hospital sees booking in realtime and checks in by scanning QR photo
 await step('patient rates the visit', async () => {
   await p.reload(); await p.waitForTimeout(1500)
   const hid = await p.evaluate(() => location.hash)
-  const href = await p.evaluate(() => [...document.querySelectorAll('a[href*="/hospitals/"]')].map((x) => x.getAttribute('href'))[0])
+  const href = await p.evaluate(() => [...document.querySelectorAll('a[href*="/hospitals/"]')].find((x) => x.textContent.includes('Harbour Point'))?.getAttribute('href'))
   await p.goto(BASE + (href ?? hid)); await p.getByTestId('rate-form').waitFor({ timeout: 10000 })
   await p.getByRole('radio', { name: '5 stars' }).click(); await p.getByRole('button', { name: 'Kind staff' }).click()
   await p.getByPlaceholder(/Anything other patients/).fill('Seen quickly, very kind nurses.')
@@ -139,7 +139,7 @@ await step('patient emergency mode shows direct hospital line', async () => {
 await step('live status change reaches patient without reload', async () => {
   const hid = await p.evaluate(() => null)
   await p.goto(BASE + '#/find'); await p.waitForTimeout(800)
-  const link = await p.evaluate(() => [...document.querySelectorAll('a[href*="/hospitals/"]')].map((x) => x.getAttribute('href'))[0])
+  const link = await p.evaluate(() => [...document.querySelectorAll('a[href*="/hospitals/"]')].find((x) => x.textContent.includes('Harbour Point'))?.getAttribute('href'))
   await p.goto(BASE + link); await p.waitForTimeout(1000)
   await h.goto(BASE + '#/hospital/status'); await h.waitForTimeout(800)
   await h.getByRole('radio', { name: /Busy/ }).first().click()

@@ -108,7 +108,8 @@ export function ensureSlots(t: Tables): boolean {
   let changed = false
   const start = today()
   const existing = new Set(t.hospital_slots.map((s) => s.id))
-  const hospitals = new Map(t.hospitals.map((h) => [h.id, h]))
+  // On the real server, hospitals that haven't joined (public-record listings) get no bookable slots
+  const hospitals = new Map(t.hospitals.filter((h) => typeof window !== 'undefined' || !h.publicRecord).map((h) => [h.id, h]))
   const bookedSlotIds = new Set(t.bookings.map((b) => b.slotId))
   const cutoff = addDays(start, -2)
   const before = t.hospital_slots.length
@@ -318,4 +319,26 @@ export function buildSeed(): Tables {
   nt('u_lagooncrest', 'verification', 'Hospital verification approved', 'Lagoon Crest Specialist Hospital is verified on Medic Hub.', 60 * 24 * 40, '/hospital/verification', true)
   nt('u_admin', 'verification', 'New verification request', 'Tanke Hills Medical Centre submitted documents for review.', 60 * 48, '/admin')
   return t
+}
+
+
+/** Launch data: only the real hospitals listed from public records (no demo accounts, bookings or reviews).
+ * Status is marked as not reported until the hospital claims its listing. */
+export function buildPublicDirectory(): Tables {
+  const t = buildSeed()
+  const ids = new Set(t.hospitals.filter((h) => h.publicRecord).map((h) => h.id))
+  const owners = new Set(t.hospitals.filter((h) => ids.has(h.id)).map((h) => h.ownerUserId))
+  const keep = <T extends { hospitalId: string }>(rows: T[]) => rows.filter((r) => ids.has(r.hospitalId))
+  const old = new Date('2020-01-01T00:00:00.000Z').toISOString()
+  return {
+    ...t,
+    users: t.users.filter((u) => owners.has(u.id)),
+    patient_profiles: [], hospitals: t.hospitals.filter((h) => ids.has(h.id)),
+    hospital_staff: t.hospital_staff.filter((s) => ids.has(s.hospitalId)),
+    hospital_departments: keep(t.hospital_departments), hospital_services: keep(t.hospital_services).map((s) => ({ ...s, fee: undefined })),
+    hospital_doctors: [], hospital_status: keep(t.hospital_status).map((s) => ({ ...s, updatedAt: old })),
+    hospital_capacity: keep(t.hospital_capacity).map((c) => ({ ...c, updatedAt: old })), hospital_slots: [],
+    bookings: [], booking_events: [], health_profiles: [], health_events: [], emergency_contacts: [], notifications: [],
+    hospital_announcements: [], hospital_documents: [], password_resets: [], hospital_reviews: [],
+  }
 }

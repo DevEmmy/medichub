@@ -18,7 +18,7 @@ export default function FirstAidGuide({ embedded = false }: { embedded?: boolean
   const [active, setActive] = useState(0)
 
   const body = !g ? (
-    <EmptyState icon={<TriangleAlert size={22} />} title="Guide not found" body="This first-aid guide isn't available. If someone is in danger, call 112 now." action={<Link to="/emergency" className="btn btn-danger">Go to emergency</Link>} />
+    <EmptyState icon={<TriangleAlert size={22} />} title="Guide not found" body="This first-aid guide isn't available. If someone is in danger, call the nearest hospital emergency unit now." action={<Link to="/emergency" className="btn btn-danger">Go to emergency</Link>} />
   ) : (
     <article>
       <div className="flex items-center gap-3">
@@ -67,7 +67,7 @@ export default function FirstAidGuide({ embedded = false }: { embedded?: boolean
         <Link to="/find?emergency=1" className="flex min-h-[64px] items-center gap-3 rounded-2xl bg-ink px-5 text-white"><Hospital size={20} /><span className="flex-1 text-[16px] font-semibold">Find care nearby</span><ArrowRight size={18} /></Link>
         <Link to="/triage" className="flex min-h-[64px] items-center gap-3 rounded-2xl bg-white px-5 text-ink shadow-soft ring-1 ring-black/5"><span className="flex-1 text-[16px] font-semibold">Check how urgent it is</span><ArrowRight size={18} /></Link>
       </section>
-      <p className="mt-8 text-[13px] leading-relaxed text-slate-500">This guide gives general first-aid steps based on British Red Cross guidance and is not a substitute for trained help. If someone is in immediate danger, call 112 now.</p>
+      <p className="mt-8 text-[13px] leading-relaxed text-slate-500">This guide gives general first-aid steps based on British Red Cross guidance and is not a substitute for trained help. If someone is in immediate danger, call the nearest hospital emergency unit now.</p>
     </article>
   )
 

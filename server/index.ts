@@ -20,7 +20,7 @@ import { db, emptyTables, type TableName } from '../src/lib/store'
 import { registry } from '../src/lib/rpc'
 import { AppError, mailer, sessionRuntime } from '../src/services/core'
 import { hashPasswordStrong } from '../src/lib/ids'
-import { buildSeed, ensureSlots } from '../src/data/seed'
+import { buildPublicDirectory, buildSeed, ensureSlots } from '../src/data/seed'
 import { startReminderScheduler } from '../src/services/reminders'
 import type { Session } from '../src/types'
 // Register every operation
@@ -242,6 +242,7 @@ async function main() {
   let data = await database.loadAll()
   const fresh = !data.users.length
   if (fresh && process.env.SEED_DEMO === '1') { data = buildSeed(); console.log('[boot] empty database: loaded demo data (SEED_DEMO=1)') }
+  else if (fresh && process.env.SEED_PUBLIC !== '0') { data = buildPublicDirectory(); console.log(`[boot] empty database: loaded ${data.hospitals.length} real hospitals from public records`) }
   db.initServer(data, {
     onWrite: (tables) => {
       const c = als.getStore(); if (c) tables.forEach((t) => c.changed.add(t))
@@ -249,7 +250,7 @@ async function main() {
       broadcast(tables)
     },
   }, ensureSlots)
-  if (fresh && process.env.SEED_DEMO === '1') database.persist(db.all(), Object.keys(emptyTables()) as TableName[])
+  if (fresh && data.hospitals.length) database.persist(db.all(), Object.keys(emptyTables()) as TableName[])
 
   // First reviewer account comes from the environment (there is no public sign-up for reviewers).
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()

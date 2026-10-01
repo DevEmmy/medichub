@@ -11,9 +11,10 @@ const pos = (seed: string | number) => { const k = ORDER.indexOf(String(seed)); 
 export function exteriorFor(seed: string | number) { return EXTERIORS[pos(seed) % EXTERIORS.length] }
 export type GalleryPhoto = { src: string; label: string; fallback?: string; credit?: string }
 export function galleryFor(seed: string | number, cover?: string, photos?: { src: string; label: string }[]): GalleryPhoto[] {
+  const realPublic = realPhotosFor(String(seed)).map((p) => ({ src: commonsSrc(p.file), label: p.caption, fallback: DEMO ? exteriorFor(seed) : undefined, credit: p.file }))
   if (!DEMO || photos?.length) {
-    // Real hospitals: only their own photos, never stock images
-    const own = photos ?? []
+    // Real hospitals: their own photos, or real photos from public sources; never stock images
+    const own: GalleryPhoto[] = photos?.length ? photos : realPublic
     return cover && !own.some((p) => p.src === cover) ? [{ src: cover, label: 'Main building' }, ...own] : own
   }
   const i = pos(seed) % 4

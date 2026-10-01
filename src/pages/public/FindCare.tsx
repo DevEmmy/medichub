@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, LayoutGroup } from 'framer-motion'
 import { List, Map as MapIcon, Search, SlidersHorizontal, X, Hospital, Siren } from 'lucide-react'
 import { HospitalCard } from '../../components/hospitals/HospitalCard'
@@ -105,8 +105,8 @@ export default function FindCare() {
       {emergencyMode && (
         <div className="mb-5 flex flex-col gap-3 rounded-2xl bg-danger-50 p-4 ring-1 ring-danger-100 sm:flex-row sm:items-center">
           <Siren size={20} className="text-danger-600" />
-          <p className="flex-1 text-[14px] font-medium text-danger-900">Showing hospitals with open emergency departments first. If someone is in immediate danger, call 112 now.</p>
-          <a href="tel:112" className="btn btn-danger btn-sm">Call 112</a>
+          <p className="flex-1 text-[14px] font-medium text-danger-900">Showing hospitals with open emergency departments first. If someone is in immediate danger, call the nearest hospital emergency unit now.</p>
+          <Link to="/emergency" className="btn btn-danger btn-sm">Call nearest emergency unit</Link>
         </div>
       )}
       <div className="flex flex-col gap-1">

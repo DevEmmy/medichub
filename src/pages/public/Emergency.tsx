@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, BookOpenCheck, Hospital, Phone, Stethoscope, Droplet, Contact } from 'lucide-react'
 import { EmergencyShell } from '../../layouts/EmergencyShell'
 import { NearestEmergency } from '../../components/emergency/NearestEmergency'
-import { Call112Button } from '../../components/emergency/Call112'
 import { DynIcon } from '../../components/ui/Icon'
 import { EMERGENCY_GUIDES } from '../../data/firstAid'
 import { useAuth } from '../../contexts/AuthContext'
@@ -43,9 +42,6 @@ export default function Emergency() {
     <EmergencyShell>
       <h1 className="sr-only">Emergency</h1>
       <NearestEmergency />
-      <p className="mb-2 mt-5 text-center text-[12.5px] font-semibold uppercase tracking-wide text-slate-500">Or the national line</p>
-      <Call112Button />
-      <p className="mt-3 text-center text-[14px] font-medium text-slate-700">{t('em.national')} · if it doesn't connect, call the hospital above or a contact below</p>
       <p className="mx-auto mt-3 max-w-xl text-center text-[13px] leading-relaxed text-slate-600">{t('em.safety')}</p>
 
       <Link to="/find?emergency=1" className="mt-6 flex min-h-[72px] items-center gap-4 rounded-3xl bg-ink px-5 text-white shadow-lift transition active:scale-[0.99]">

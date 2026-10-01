@@ -76,7 +76,7 @@ export default function Triage() {
           {outcome === 'emergency' && (
             <div className="rounded-[28px] bg-danger-600 p-6 text-white shadow-lift sm:p-8">
               <p className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[13px] font-bold"><Siren size={15} /> EMERGENCY</p>
-              <h2 className="mt-4 text-[30px] font-semibold leading-tight text-white">Call 112 and seek emergency care now.</h2>
+              <h2 className="mt-4 text-[30px] font-semibold leading-tight text-white">Get emergency care now.</h2>
               <p className="mt-2 text-[15px] text-white/85">Your answer suggests a possible emergency. Don't wait to see if it gets better.</p>
               <div className="mt-6 rounded-3xl bg-white p-2"><Call112Button size="md" /></div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -89,7 +89,7 @@ export default function Triage() {
             <div className="rounded-[28px] bg-amber-50 p-6 ring-1 ring-amber-100 sm:p-8">
               <p className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-3 py-1 text-[13px] font-bold text-white"><Clock size={15} /> URGENT</p>
               <h2 className="mt-4 text-[28px] font-semibold leading-tight">Seek medical attention promptly.</h2>
-              <p className="mt-2 text-[15px] text-slate-700">Try to see a doctor today. If things get worse, or you notice any danger signs, call 112.</p>
+              <p className="mt-2 text-[15px] text-slate-700">Try to see a doctor today. If things get worse, or you notice any danger signs, call the nearest hospital emergency unit.</p>
               <div className="mt-6 grid gap-2 sm:grid-cols-2">
                 <Link to="/find?open=1" className="btn btn-primary h-14"><Hospital size={18} /> Find a hospital open now</Link>
                 <Link to="/find?appt=1" className="btn btn-secondary h-14"><CalendarPlus size={18} /> Book the earliest slot</Link>

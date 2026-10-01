@@ -11,9 +11,9 @@ const shot = async (pg, name) => { await pg.waitForTimeout(700); await overflow(
 const step = async (name, fn) => { try { await fn(); console.log('OK', name) } catch (e) { errors.push(`STEP FAIL ${name}: ${e.message.split('\n')[0]}`); console.log('FAIL', name, e.message.split('\n')[0]) } }
 
 await step('landing', async () => { await p.goto(BASE); await p.getByText('without the guesswork').waitFor(); await shot(p, 'm-landing') })
-await step('emergency public', async () => { await p.goto(BASE + '#/emergency'); await p.getByText('Call 112').first().waitFor(); await shot(p, 'm-emergency') })
+await step('emergency public', async () => { await p.goto(BASE + '#/emergency'); await p.getByText('Call the hospital directly').first().waitFor(); await shot(p, 'm-emergency') })
 await step('guide', async () => { await p.goto(BASE + '#/emergency/severe-bleeding'); await p.getByText('Do this now').waitFor(); await shot(p, 'm-guide') })
-await step('triage', async () => { await p.goto(BASE + '#/triage'); await p.getByRole('button', { name: 'No' }).click(); await p.getByRole('button', { name: 'Yes' }).click(); await p.getByText('Call 112 and seek emergency care now').waitFor(); await shot(p, 'm-triage') })
+await step('triage', async () => { await p.goto(BASE + '#/triage'); await p.getByRole('button', { name: 'No' }).click(); await p.getByRole('button', { name: 'Yes' }).click(); await p.getByText('Get emergency care now').waitFor(); await shot(p, 'm-triage') })
 await step('login patient', async () => { await p.goto(BASE + '#/login'); await p.getByRole('button', { name: /^Patient$/ }).click(); await p.waitForURL(/#\/app$/); await shot(p, 'm-home') })
 await step('find', async () => { await p.goto(BASE + '#/find'); await p.getByText('Choose city').click(); await p.getByRole('button', { name: /Lekki Phase 1/ }).click(); await p.waitForTimeout(600); await shot(p, 'm-find') })
 await step('filters', async () => { await p.getByRole('button', { name: 'Emergency available' }).click(); await p.waitForTimeout(400); await shot(p, 'm-find-filter') })

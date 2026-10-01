@@ -1,4 +1,5 @@
 import { ReviewsSection } from '../../components/hospitals/Reviews'
+import { DEMO } from '../../config'
 import { FreshnessNote } from '../../components/hospitals/FreshnessNote'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
@@ -86,7 +87,7 @@ export default function HospitalProfile() {
     <div className="container-app py-10"><EmptyState icon={<Building2 size={22} />} title="Hospital profile unavailable" body="This facility isn't listed, or the link is out of date." action={<Link to="/find" className="btn btn-primary btn-sm">Find care</Link>} /></div>
   )
   const dist = location ? distanceKm(location, h) : null
-  const bookable = h.services.filter((s) => s.bookable && s.active)
+  const bookable = !DEMO && h.publicRecord ? [] : h.services.filter((s) => s.bookable && s.active)
   const isStaff = hospitalId === h.id
 
   return (
@@ -125,7 +126,7 @@ export default function HospitalProfile() {
       {h.publicRecord && (
         <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100 sm:flex-row sm:items-center">
           <Info size={19} className="shrink-0 text-sky-700" />
-          <p className="flex-1 text-[13.5px] leading-relaxed text-sky-900"><strong>Listed from public records.</strong> This hospital hasn't joined Medic Hub yet. Live status, capacity and slots on this page are demo data and are not reported by the hospital. Bookings here are demo bookings.</p>
+          <p className="flex-1 text-[13.5px] leading-relaxed text-sky-900"><strong>Listed from public records.</strong> {DEMO ? "This hospital hasn't joined Medic Hub yet. Live status, capacity and slots on this page are demo data and are not reported by the hospital. Bookings here are demo bookings." : "This hospital hasn't joined Medic Hub yet. Name, location and photos are from public sources. Live status and online booking appear once the hospital claims this listing. Call or visit before you go."}</p>
           <Link to="/signup?role=hospital" className="btn btn-sm shrink-0 bg-white text-ink ring-1 ring-sky-100">Work here? Claim this listing</Link>
         </div>
       )}
@@ -149,15 +150,15 @@ export default function HospitalProfile() {
           <section aria-labelledby="live-h">
             <div className="flex items-center justify-between">
               <h2 id="live-h" className="flex items-center gap-2 text-[20px] font-semibold">Live status</h2>
-              <span className="flex items-center gap-2 text-[12.5px] font-medium text-slate-500">{h.publicRecord && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10.5px] font-bold uppercase text-amber-700">Demo</span>}<span className="relative flex h-2 w-2"><span className="absolute inset-0 animate-pulseRing rounded-full bg-brand-500" /><span className="relative h-2 w-2 rounded-full bg-brand-500" /></span>Updated {relTime(h.status.updatedAt > h.capacity.updatedAt ? h.status.updatedAt : h.capacity.updatedAt)} {h.publicRecord ? '' : ' by hospital staff'}</span>
+              <span className="flex items-center gap-2 text-[12.5px] font-medium text-slate-500">{DEMO && h.publicRecord && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10.5px] font-bold uppercase text-amber-700">Demo</span>}<span className="relative flex h-2 w-2"><span className="absolute inset-0 animate-pulseRing rounded-full bg-brand-500" /><span className="relative h-2 w-2 rounded-full bg-brand-500" /></span>Updated {relTime(h.status.updatedAt > h.capacity.updatedAt ? h.status.updatedAt : h.capacity.updatedAt)} {h.publicRecord ? '' : ' by hospital staff'}</span>
             </div>
             <FreshnessNote h={h} variant="banner" className="mt-3" />
-            <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            {(DEMO || !h.publicRecord) && <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
               <Tile label="Emergency department" icon={Siren} changed={changed.has('emergency')} big><Pill tone={emergencyTone(h.status.emergency)} pulse={h.status.emergency !== 'closed'}>{emergencyLabel(h.status.emergency)}</Pill><span className="ml-2 text-[12px] text-slate-500">Emergency capacity: <strong className={cn(changed.has('ecap') && 'text-amber-700')}>{capLabel(h.capacity.emergency)}</strong></span></Tile>
               <Tile label="Overall capacity" icon={Activity} changed={changed.has('overall')} big><Pill tone={capTone(h.capacity.overall)}>{capLabel(h.capacity.overall)}</Pill><span className="ml-2 text-[12px] text-slate-500 tabular"><BedDouble size={12} className="-mt-0.5 mr-1 inline" />{h.capacity.bedsAvailable} of {h.capacity.bedsTotal} beds free</span></Tile>
               {RES.map((r) => <Tile key={r.key} label={r.label} icon={r.icon} changed={changed.has(r.key)}><Pill tone={availTone(h.status[r.key])}>{availLabel(h.status[r.key])}</Pill></Tile>)}
-            </div>
-            <p className="mt-2 text-[12px] text-slate-500">{h.publicRecord ? 'Demo status for illustration. This hospital does not report to Medic Hub yet.' : 'Status is reported by the hospital and can change quickly.'} Call ahead if you're travelling far. In an emergency, call the hospital's emergency line or 112.</p>
+            </div>}
+            <p className="mt-2 text-[12px] text-slate-500">{h.publicRecord ? (DEMO ? 'Demo status for illustration. This hospital does not report to Medic Hub yet.' : 'This hospital does not report its status to Medic Hub yet.') : 'Status is reported by the hospital and can change quickly.'} Call ahead if you're travelling far. In an emergency, call the hospital's emergency line.</p>
           </section>
 
           <PhotoGallery hue={h.hue} seed={h.id} cover={h.cover} photos={h.photos} name={h.name} note={h.publicRecord ? 'Illustrative photos, not of this hospital.' : undefined} />
@@ -211,7 +212,7 @@ export default function HospitalProfile() {
             <h2 className="text-[16px] font-semibold">Contact</h2>
             <ul className="mt-3 space-y-3 text-[14px]">
               <li className="flex gap-3"><MapPin size={17} className="mt-0.5 shrink-0 text-slate-400" /><span>{h.address}, {h.city}, {h.state}</span></li>
-              {h.phone ? <li className="flex gap-3"><Phone size={17} className="mt-0.5 shrink-0 text-slate-400" /><a href={`tel:${h.phone.replace(/\s/g, '')}`} className="font-medium text-ink hover:underline">{h.phone}</a></li> : <li className="flex gap-3"><Phone size={17} className="mt-0.5 shrink-0 text-slate-400" /><span className="text-slate-600">Phone numbers aren't listed until the hospital joins Medic Hub. In an emergency, call <strong className="text-ink">112</strong>.</span></li>}
+              {h.phone ? <li className="flex gap-3"><Phone size={17} className="mt-0.5 shrink-0 text-slate-400" /><a href={`tel:${h.phone.replace(/\s/g, '')}`} className="font-medium text-ink hover:underline">{h.phone}</a></li> : <li className="flex gap-3"><Phone size={17} className="mt-0.5 shrink-0 text-slate-400" /><span className="text-slate-600">Phone numbers aren't listed until the hospital joins Medic Hub. In an emergency, call the nearest hospital emergency unit.</span></li>}
               {h.emergencyPhone && <li className="flex gap-3"><Siren size={17} className="mt-0.5 shrink-0 text-danger-500" /><span>Emergency line: <a href={`tel:${h.emergencyPhone.replace(/\s/g, '')}`} className="font-medium text-ink hover:underline">{h.emergencyPhone}</a></span></li>}
               {h.email && <li className="flex gap-3"><Mail size={17} className="mt-0.5 shrink-0 text-slate-400" /><span className="break-all">{h.email}</span></li>}
               {h.publicRecord && <li className="flex gap-3"><Globe size={17} className="mt-0.5 shrink-0 text-slate-400" /><a href="https://health.gov.ng" target="_blank" rel="noopener noreferrer" className="font-medium text-brand-700 hover:underline">Federal Ministry of Health</a></li>}

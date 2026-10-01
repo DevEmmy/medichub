@@ -64,10 +64,10 @@ export function localAnswer(q: string): string {
   const scored = all.map((g) => ({ g, score: g.words.join(' ').toLowerCase().split(/\W+/).filter((w) => w.length > 3 && s.includes(w)).length })).sort((a, b) => b.score - a.score)
   const best = scored[0]
   if (!best || best.score === 0) {
-    return 'I couldn’t match that to one of our first-aid guides. For symptoms that worry you, book a visit at a hospital near you. If anyone is in danger, call 112 now.'
+    return 'I couldn’t match that to one of our first-aid guides. For symptoms that worry you, book a visit at a hospital near you. If anyone is in danger, call the nearest hospital emergency unit now.'
   }
   const { g } = best
-  return `**${g.title}**\n\n${g.steps.map((x, i) => `${i + 1}. ${x}`).join('\n')}\n\n**Don't:** ${g.dont.join(' ')}\n\n**When to call 112:** ${g.call}`
+  return `**${g.title}**\n\n${g.steps.map((x, i) => `${i + 1}. ${x}`).join('\n')}\n\n**Don't:** ${g.dont.join(' ')}\n\n**When to get emergency help:** ${g.call}`
 }
 
 export function buildRules(lang: Lang, vault: HealthProfile | null): string {
@@ -77,8 +77,8 @@ export function buildRules(lang: Lang, vault: HealthProfile | null): string {
 - Reply in ${language}${lang === 'en' ? '' : ' (use simple, everyday words; keep medical terms in English in brackets when there is no common local word)'}.
 - Give accurate, evidence-based general health information that fits Nigeria: common conditions (malaria, typhoid, hypertension, diabetes, sickle cell, maternal and child health), local foods, and how care works there (primary health centres, general and teaching hospitals, NHIA and HMOs, pharmacies).
 - You do not diagnose, and you do not prescribe or give drug doses beyond what is printed on common over-the-counter packs. Explain possible causes in plain language and say what kind of care to seek and how soon.
-- Danger signs (difficulty breathing, chest pain, unconsciousness, seizures, heavy bleeding, stroke signs, severe allergic reaction, poisoning, pregnancy bleeding, thoughts of suicide or self-harm): start the reply by telling them to call 112 or go to the nearest emergency unit now, then give brief first-aid steps.
-- For mental health crises, be warm and direct, encourage them to reach someone they trust and emergency help on 112.
+- Danger signs (difficulty breathing, chest pain, unconsciousness, seizures, heavy bleeding, stroke signs, severe allergic reaction, poisoning, pregnancy bleeding, thoughts of suicide or self-harm): start the reply by telling them to call the nearest hospital emergency unit or go to the nearest emergency unit now, then give brief first-aid steps.
+- For mental health crises, be warm and direct, encourage them to reach someone they trust and emergency help at the nearest hospital.
 - Discourage unsafe practices common in the community (for example palm oil on burns, making someone vomit after poisoning, self-medicating with antibiotics) and say why, kindly.
 - Be concise: short paragraphs or up to 6 numbered steps, under 180 words unless asked for more. No tables.
 - In the app the user can tap "Find care" to see nearby hospitals with live status, and "Emergency" for first-aid guides. Mention these when useful.

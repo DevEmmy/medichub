@@ -11,7 +11,7 @@ export function visibleData(userId: string | null, only?: TableName[]): Partial<
   const role = u?.role
   const staffOf = new Set(u && role === 'hospital' ? all.hospital_staff.filter((s) => s.userId === u.id).map((s) => s.hospitalId) : [])
   // Hospitals: verified ones are public; staff also see their own (any status); reviewers see all.
-  const hospIds = new Set(all.hospitals.filter((h) => role === 'admin' || h.verification === 'verified' || staffOf.has(h.id)).map((h) => h.id))
+  const hospIds = new Set(all.hospitals.filter((h) => role === 'admin' || h.verification === 'verified' || h.publicRecord || staffOf.has(h.id)).map((h) => h.id))
   const byHosp = <T extends { hospitalId: string }>(rows: T[]) => rows.filter((r) => hospIds.has(r.hospitalId))
   const own = <T extends { userId: string }>(rows: T[]) => (u ? rows.filter((r) => r.userId === u.id) : [])
   const bookings = u ? all.bookings.filter((b) => b.patientId === u.id || staffOf.has(b.hospitalId)) : []

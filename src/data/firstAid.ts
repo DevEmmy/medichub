@@ -6,7 +6,7 @@ import type { EmergencyGuide, FirstAidVideo, HealthResource } from '../types'
  * the app reminds people that the emergency number in Nigeria is 112.
  * Durations are not stored because we have not measured them; cards say "Short video".
  */
-const UK_NOTE = 'Produced in the UK, where the emergency number is 999. In Nigeria, call 112.'
+const UK_NOTE = 'Produced in the UK, where the emergency number is 999. In Nigeria, call the nearest hospital emergency unit.'
 const BRC = 'British Red Cross'
 
 export const FIRST_AID_VIDEOS: FirstAidVideo[] = [
@@ -62,7 +62,7 @@ export const videoById = (id: string) => FIRST_AID_VIDEOS.find((v) => v.id === i
 export const EMERGENCY_GUIDES: EmergencyGuide[] = [
   {
     slug: 'severe-bleeding', title: 'Severe bleeding', short: 'Blood is spurting or will not stop', icon: 'Droplet', severity: 'critical',
-    call112When: 'Call 112 for any heavy bleeding, or if the person looks pale, cold, clammy or drowsy.',
+    call112When: 'Call the nearest hospital emergency unit for any heavy bleeding, or if the person looks pale, cold, clammy or drowsy.',
     doNow: [
       'Press firmly on the wound with a clean cloth or your hand.',
       'Keep pressing hard and do not lift to check. Add more cloth on top if blood soaks through.',
@@ -74,9 +74,9 @@ export const EMERGENCY_GUIDES: EmergencyGuide[] = [
   },
   {
     slug: 'chest-pain', title: 'Chest pain', short: 'Crushing or persistent chest pain', icon: 'HeartPulse', severity: 'critical',
-    call112When: 'Call 112 straight away for chest pain that is crushing, spreading to the arm, jaw or back, or lasts more than a few minutes.',
+    call112When: 'Call the nearest hospital emergency unit straight away for chest pain that is crushing, spreading to the arm, jaw or back, or lasts more than a few minutes.',
     doNow: [
-      'Call 112 and say you suspect a heart attack.',
+      'Call the nearest hospital emergency unit and say you suspect a heart attack.',
       'Help them sit in a comfortable position, often half-sitting with knees bent.',
       'Loosen tight clothing and keep them calm and still.',
       'If they become unresponsive and are not breathing normally, start CPR.',
@@ -86,7 +86,7 @@ export const EMERGENCY_GUIDES: EmergencyGuide[] = [
   },
   {
     slug: 'difficulty-breathing', title: 'Difficulty breathing', short: 'Struggling to breathe or speak', icon: 'Wind', severity: 'critical',
-    call112When: 'Call 112 if they cannot speak in full sentences, their lips look blue or grey, or breathing keeps getting worse.',
+    call112When: 'Call the nearest hospital emergency unit if they cannot speak in full sentences, their lips look blue or grey, or breathing keeps getting worse.',
     doNow: [
       'Help them sit upright, leaning slightly forward. Keep them calm.',
       'If they have a reliever inhaler (usually blue), help them use it.',
@@ -98,19 +98,19 @@ export const EMERGENCY_GUIDES: EmergencyGuide[] = [
   },
   {
     slug: 'stroke', title: 'Stroke symptoms', short: 'Face drooping, arm weakness, slurred speech', icon: 'Brain', severity: 'critical',
-    call112When: 'Call 112 immediately if you see any one of the FAST signs. Every minute matters.',
+    call112When: 'Call the nearest hospital emergency unit immediately if you see any one of the FAST signs. Every minute matters.',
     doNow: [
       'Face: ask them to smile. Does one side droop?',
       'Arms: ask them to raise both arms. Does one drift down?',
       'Speech: is it slurred or confused?',
-      'Time: call 112 now and note the time the symptoms started.',
+      'Time: call the nearest hospital emergency unit now and note the time the symptoms started.',
     ],
     dont: ['Do not give food, drink or medicine.', 'Do not wait to see if it gets better.'],
     videoIds: ['v-stroke'], keywords: ['stroke', 'face', 'droop', 'slurred', 'paralysis'],
   },
   {
     slug: 'seizure', title: 'Seizure', short: 'Shaking, stiffening or collapse', icon: 'Zap', severity: 'serious',
-    call112When: 'Call 112 if the seizure lasts more than 5 minutes, they are injured, it is their first seizure, or they do not wake up after.',
+    call112When: 'Call the nearest hospital emergency unit if the seizure lasts more than 5 minutes, they are injured, it is their first seizure, or they do not wake up after.',
     doNow: [
       'Move hard or sharp objects away. Cushion their head.',
       'Time the seizure.',
@@ -122,7 +122,7 @@ export const EMERGENCY_GUIDES: EmergencyGuide[] = [
   },
   {
     slug: 'burn', title: 'Burn', short: 'Heat, chemical or scald burns', icon: 'Flame', severity: 'serious',
-    call112When: 'Call 112 for large or deep burns, burns to the face, hands, feet or genitals, electrical or chemical burns, or burns on a child.',
+    call112When: 'Call the nearest hospital emergency unit for large or deep burns, burns to the face, hands, feet or genitals, electrical or chemical burns, or burns on a child.',
     doNow: [
       'Cool the burn under cool or lukewarm running water for at least 20 minutes.',
       'Remove jewellery or clothing near the burn unless it is stuck to the skin.',
@@ -134,21 +134,21 @@ export const EMERGENCY_GUIDES: EmergencyGuide[] = [
   },
   {
     slug: 'choking', title: 'Choking', short: 'Cannot cough, speak or breathe', icon: 'Hand', severity: 'critical',
-    call112When: 'Call 112 if back blows and abdominal thrusts do not clear the blockage.',
+    call112When: 'Call the nearest hospital emergency unit if back blows and abdominal thrusts do not clear the blockage.',
     doNow: [
       'If they can cough, encourage them to keep coughing.',
       'If they cannot, give up to 5 firm back blows between the shoulder blades.',
       'Then give up to 5 abdominal thrusts: stand behind, fist above the navel, pull sharply in and up.',
-      'Repeat back blows and thrusts. If they become unresponsive, call 112 and start CPR.',
+      'Repeat back blows and thrusts. If they become unresponsive, call the nearest hospital emergency unit and start CPR.',
     ],
     dont: ['Do not do abdominal thrusts on babies under 1 year.', 'Do not blindly sweep the mouth with your fingers.'],
     videoIds: ['v-choking'], keywords: ['choke', 'food stuck', 'airway'],
   },
   {
     slug: 'allergic-reaction', title: 'Severe allergic reaction', short: 'Swelling, rash and trouble breathing', icon: 'ShieldAlert', severity: 'critical',
-    call112When: 'Call 112 for swelling of the lips, tongue or throat, trouble breathing, or feeling faint after exposure to a trigger.',
+    call112When: 'Call the nearest hospital emergency unit for swelling of the lips, tongue or throat, trouble breathing, or feeling faint after exposure to a trigger.',
     doNow: [
-      'Call 112 and say "anaphylaxis".',
+      'Call the nearest hospital emergency unit and say "anaphylaxis".',
       'Help them use their adrenaline auto-injector if they have one, into the outer thigh.',
       'If breathing is hard, help them sit up. If they feel faint, lay them down with legs raised.',
       'A second auto-injector can be used after 5 minutes if there is no improvement.',
@@ -158,19 +158,19 @@ export const EMERGENCY_GUIDES: EmergencyGuide[] = [
   },
   {
     slug: 'unconscious', title: 'Fainting or unresponsive', short: 'Collapsed or will not wake', icon: 'Bed', severity: 'critical',
-    call112When: 'Call 112 if they do not respond, are not breathing normally, or do not recover quickly after fainting.',
+    call112When: 'Call the nearest hospital emergency unit if they do not respond, are not breathing normally, or do not recover quickly after fainting.',
     doNow: [
       'Check for a response: speak loudly and tap their shoulders.',
       'Open the airway by tilting the head back and lifting the chin. Look and listen for breathing for 10 seconds.',
       'Breathing: roll them onto their side into the recovery position.',
-      'Not breathing: call 112 and start CPR, pushing hard and fast in the centre of the chest.',
+      'Not breathing: call the nearest hospital emergency unit and start CPR, pushing hard and fast in the centre of the chest.',
     ],
     dont: ['Do not give food or drink.', 'Do not leave them on their back if they are breathing and unresponsive.'],
     videoIds: ['v-recovery', 'v-cpr', 'v-diabetic'], keywords: ['faint', 'collapse', 'unconscious', 'passed out'],
   },
   {
     slug: 'serious-injury', title: 'Serious injury', short: 'Falls, crashes and broken bones', icon: 'Bone', severity: 'serious',
-    call112When: 'Call 112 after road crashes, falls from height, head injuries with drowsiness, or when a limb looks deformed.',
+    call112When: 'Call the nearest hospital emergency unit after road crashes, falls from height, head injuries with drowsiness, or when a limb looks deformed.',
     doNow: [
       'Make sure the scene is safe before you approach.',
       'If you suspect a neck or back injury, keep them still and support the head.',
@@ -182,7 +182,7 @@ export const EMERGENCY_GUIDES: EmergencyGuide[] = [
   },
   {
     slug: 'poisoning', title: 'Poisoning', short: 'Swallowed, inhaled or touched something harmful', icon: 'Skull', severity: 'serious',
-    call112When: 'Call 112 if they are drowsy, having trouble breathing, having a seizure, or you do not know what they took.',
+    call112When: 'Call the nearest hospital emergency unit if they are drowsy, having trouble breathing, having a seizure, or you do not know what they took.',
     doNow: [
       'Find out what they took, how much and when. Keep the container.',
       'If they are unresponsive but breathing, put them in the recovery position.',
@@ -194,41 +194,41 @@ export const EMERGENCY_GUIDES: EmergencyGuide[] = [
   },
   {
     slug: 'electric-shock', title: 'Electric shock', short: 'Contact with a live current', icon: 'Zap', severity: 'critical',
-    call112When: 'Call 112 for any electric shock from mains power or high-voltage lines, or if they are unresponsive.',
+    call112When: 'Call the nearest hospital emergency unit for any electric shock from mains power or high-voltage lines, or if they are unresponsive.',
     doNow: [
       'Do not touch them until the power is off. Switch off at the mains if you can.',
       'If you cannot, push the source away with something dry and non-conducting, like a wooden broom.',
       'Once safe, check breathing. If they are not breathing, start CPR.',
       'Cool any burns under running water and cover loosely.',
     ],
-    dont: ['Never approach high-voltage lines. Stay at least 18 metres away and call 112.', 'Do not touch them with bare hands while the current is live.'],
+    dont: ['Never approach high-voltage lines. Stay at least 18 metres away and call the nearest hospital emergency unit.', 'Do not touch them with bare hands while the current is live.'],
     videoIds: ['v-cpr', 'v-burns'], keywords: ['electric', 'shock', 'nepa', 'wire', 'electrocution'],
   },
 ]
 
 export const HEALTH_RESOURCES: HealthResource[] = [
   { slug: 'cpr', title: 'CPR basics', summary: 'Hands-only chest compressions keep blood flowing to the brain.', icon: 'HeartPulse', videoIds: ['v-cpr', 'v-aed'],
-    call112When: 'Always call 112 before or while you start CPR.',
+    call112When: 'Always call the nearest hospital emergency unit before or while you start CPR.',
     doNow: ['Kneel beside them and place the heel of your hand in the centre of the chest.', 'Put your other hand on top and lock your elbows.', 'Push down 5 to 6 cm, twice a second (100 to 120 a minute).', 'Keep going until help arrives or they start breathing normally.'],
     dont: ['Do not stop to check for a pulse.', 'Do not worry about hurting them. Compressions save lives.'] },
   { slug: 'recovery-position', title: 'Recovery position', summary: 'Keeps the airway clear for someone unresponsive but breathing.', icon: 'Bed', videoIds: ['v-recovery'],
-    call112When: 'Call 112 for anyone who is unresponsive, even if they are breathing.',
+    call112When: 'Call the nearest hospital emergency unit for anyone who is unresponsive, even if they are breathing.',
     doNow: ['Kneel beside them. Place the arm nearest you at a right angle.', 'Bring the far arm across the chest, back of the hand against their cheek.', 'Bend the far knee and roll them towards you onto their side.', 'Tilt the head back so the airway stays open. Keep checking breathing.'],
     dont: ['Do not leave them alone.', 'Do not use this position if you suspect a spinal injury, unless the airway is at risk.'] },
   { slug: 'asthma-attack', title: 'Asthma attack', summary: 'Sit them up and help them use their reliever inhaler.', icon: 'Wind', videoIds: ['v-asthma'],
-    call112When: 'Call 112 if the inhaler does not help, they are getting worse, or they are too breathless to speak.',
+    call112When: 'Call the nearest hospital emergency unit if the inhaler does not help, they are getting worse, or they are too breathless to speak.',
     doNow: ['Help them sit upright and stay calm.', 'Help them take one puff of their reliever inhaler every 30 to 60 seconds, up to 10 puffs.', 'Loosen tight clothing.'], dont: ['Do not make them lie down.'] },
   { slug: 'diabetic-emergency', title: 'Diabetic emergency', summary: 'Low sugar can cause shaking, sweating and confusion.', icon: 'Droplets', videoIds: ['v-diabetic'],
-    call112When: 'Call 112 if they are drowsy, cannot swallow, or do not improve within 15 minutes.',
+    call112When: 'Call the nearest hospital emergency unit if they are drowsy, cannot swallow, or do not improve within 15 minutes.',
     doNow: ['Help them sit down.', 'If they can swallow safely, give a sugary drink or sweets.', 'If they improve, give a snack like bread or biscuits.'], dont: ['Do not give anything by mouth if they are drowsy or unresponsive.'] },
   { slug: 'heart-attack', title: 'Heart attack', summary: 'Persistent chest pain needs emergency care.', icon: 'HeartPulse', videoIds: ['v-heart'],
-    call112When: 'Call 112 immediately.', doNow: ['Sit them down comfortably.', 'Keep them calm and still.', 'Be ready to start CPR if they become unresponsive.'], dont: ['Do not let them walk to get help.'] },
+    call112When: 'Call the nearest hospital emergency unit immediately.', doNow: ['Sit them down comfortably.', 'Keep them calm and still.', 'Be ready to start CPR if they become unresponsive.'], dont: ['Do not let them walk to get help.'] },
   { slug: 'broken-bone', title: 'Broken bones', summary: 'Keep the injury still and supported.', icon: 'Bone', videoIds: ['v-bone'],
-    call112When: 'Call 112 for open fractures, suspected thigh, neck or back injuries.', doNow: ['Support the limb above and below the injury.', 'Use padding to keep it still.', 'Get medical help.'], dont: ['Do not try to straighten it.'] },
+    call112When: 'Call the nearest hospital emergency unit for open fractures, suspected thigh, neck or back injuries.', doNow: ['Support the limb above and below the injury.', 'Use padding to keep it still.', 'Get medical help.'], dont: ['Do not try to straighten it.'] },
   { slug: 'nosebleed', title: 'Nosebleed', summary: 'Lean forward, pinch the soft part of the nose.', icon: 'Droplet', videoIds: [],
     call112When: 'Seek urgent care if bleeding lasts more than 30 minutes or follows a head injury.', doNow: ['Sit and lean forward.', 'Pinch the soft part of the nose for 10 to 15 minutes.', 'Breathe through the mouth.'], dont: ['Do not tilt the head back.'] },
   { slug: 'heat-exhaustion', title: 'Heat exhaustion', summary: 'Move to a cool place and rehydrate.', icon: 'Sun', videoIds: [],
-    call112When: 'Call 112 if they stop sweating, become confused or do not improve within 30 minutes.', doNow: ['Move them to a cool, shaded place.', 'Loosen clothing and cool the skin with water.', 'Give sips of water or oral rehydration solution.'], dont: ['Do not give alcohol or caffeinated drinks.'] },
+    call112When: 'Call the nearest hospital emergency unit if they stop sweating, become confused or do not improve within 30 minutes.', doNow: ['Move them to a cool, shaded place.', 'Loosen clothing and cool the skin with water.', 'Give sips of water or oral rehydration solution.'], dont: ['Do not give alcohol or caffeinated drinks.'] },
 ]
 
-export const TRIAGE_DISCLAIMER = 'This tool does not diagnose medical conditions. If you believe you are in immediate danger, call 112.'
+export const TRIAGE_DISCLAIMER = 'This tool does not diagnose medical conditions. If you believe you are in immediate danger, call the nearest hospital emergency unit.'

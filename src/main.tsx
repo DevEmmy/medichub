@@ -15,7 +15,7 @@ const render = () => root.render(<StrictMode><App /></StrictMode>)
 function bootError(retry: () => void) {
   root.render(
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, fontFamily: 'Inter, system-ui, sans-serif', textAlign: 'center' }}>
-      <div><p style={{ fontSize: 20, fontWeight: 600 }}>Can't reach Medic Hub</p><p style={{ color: '#555', marginTop: 6 }}>Check your internet connection. In an emergency, call 112.</p>
+      <div><p style={{ fontSize: 20, fontWeight: 600 }}>Can't reach Medic Hub</p><p style={{ color: '#555', marginTop: 6 }}>Check your internet connection. In an emergency, call the nearest hospital emergency unit.</p>
         <button onClick={retry} style={{ marginTop: 16, padding: '10px 18px', borderRadius: 12, background: '#0A1F1A', color: 'white', border: 0, fontWeight: 600 }}>Try again</button></div>
     </div>,
   )
