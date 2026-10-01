@@ -1,0 +1,1 @@
+import{j as a,m as n}from"./index-ndODmPgh.js";function r({children:i,className:t}){return a.jsx(n.div,{className:t,initial:{opacity:0,y:8},animate:{opacity:1,y:0},transition:{duration:.26,ease:[.2,.7,.2,1]},children:i})}export{r as P};
