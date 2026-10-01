@@ -4,8 +4,10 @@ import './index.css'
 import { db } from './lib/store'
 import { buildSeed, ensureSlots } from './data/seed'
 import App from './App'
+import { startReminderScheduler } from './services/reminders'
 
 db.init(buildSeed, ensureSlots)
+startReminderScheduler()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -65,6 +65,10 @@ const DEFS: Def[] = [
   D({ id: 'h_ughellivale', name: 'Wuse Vale Diagnostics', type: 'Private', tagline: 'Imaging and lab diagnostics', area: 'Wuse', city: 'Abuja', state: 'FCT', lat: 9.0643, lng: 7.4731, street: '17 Adetokunbo Ademola Crescent', specialties: ['Radiology', 'Laboratory'], hue: 210, beds: 0, verification: 'pending', emergency: 'closed', ecap: 'full', phone: '+234 9 290 8800', year: '2024' }),
 ]
 
+// Lagoon Crest starts 13 hours stale so the reminder + "Still correct" flow is visible in the demo;
+// Tanke Hills (in review) shows the over-a-day warning once approved.
+const STATUS_AGE_MIN: Record<string, number> = { h_lagooncrest: 13 * 60 + 10, h_tankehills: 31 * 60 }
+
 const DOCTOR_NAMES = ['Dr. Adaeze Nwosu', 'Dr. Tunde Bakare', 'Dr. Halima Sani', 'Dr. Chinedu Eze', 'Dr. Funmilayo Adeyemi', 'Dr. Ibrahim Musa', 'Dr. Ngozi Okonkwo', 'Dr. Segun Afolabi', 'Dr. Zainab Bello', 'Dr. Emeka Obi', 'Dr. Yetunde Ogunleye', 'Dr. Aisha Lawal', 'Dr. Kelechi Umeh', 'Dr. Bola Johnson', 'Dr. Musa Danjuma', 'Dr. Ifeoma Chukwu']
 
 const DESCRIPTIONS: Record<string, string> = {
@@ -196,7 +200,7 @@ export function buildSeed(): Tables {
       maternity: d.specialties.includes('Obstetrics & Gynecology') ? pick() : 'unavailable',
       theatre: has('Theatre') ? pick() : 'unavailable',
       bloodBank: has('Blood bank') ? pick() : 'unavailable',
-      updatedAt: new Date(Date.now() - (idx + 1) * 7 * 60000).toISOString(),
+      updatedAt: new Date(Date.now() - (STATUS_AGE_MIN[d.id] ?? (idx + 1) * 7) * 60000).toISOString(),
     }
     t.hospital_status.push(st)
     const avail = Math.max(0, Math.round(d.beds * (d.overall === 'available' ? 0.4 : d.overall === 'moderate' ? 0.22 : d.overall === 'high' ? 0.08 : 0)))

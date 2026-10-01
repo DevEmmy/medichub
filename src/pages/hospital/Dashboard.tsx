@@ -1,3 +1,4 @@
+import { FreshnessPanel } from '../../components/hospital-admin/FreshnessPanel'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
@@ -99,6 +100,8 @@ export default function Dashboard() {
         <div><p className="text-[13px] font-medium text-slate-500">{fmtDateLong(t)}</p><h1 className="text-[28px] font-semibold">Today</h1></div>
         <div className="flex gap-2"><Link to="/hospital/check-in" className="btn btn-primary btn-sm"><ScanLine size={15} /> Check in</Link><a href={`#/hospitals/${h.id}`} target="_blank" rel="noopener" className="btn btn-secondary btn-sm"><ExternalLink size={15} /> Patient view</a></div>
       </div>
+
+      <FreshnessPanel h={h} />
 
       <section aria-label="Today's bookings" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         {kpis.map((k, i) => (

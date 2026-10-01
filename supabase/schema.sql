@@ -49,6 +49,7 @@ create table hospitals (
   specialties text[] not null default '{}',
   verification verification_status not null default 'pending',
   verification_note text,
+  public_record boolean not null default false, -- listed from public records, not onboarded
   registration jsonb not null default '{}',
   admin_contact jsonb not null default '{}',
   auto_confirm boolean not null default true,
@@ -98,7 +99,8 @@ create table hospital_status (
   maternity availability not null default 'unavailable',
   theatre availability not null default 'unavailable',
   blood_bank availability not null default 'unavailable',
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  last_reminder_at timestamptz -- last "please update" email (see server/reminders.example.ts)
 );
 
 create table hospital_capacity (

@@ -1,6 +1,6 @@
 # Medic Hub
 
-Healthcare access and emergency platform for Nigeria. Patients find the right hospital, see live availability, book a slot and get a QR pass. Hospitals run an operations portal that pushes status changes to patients in real time. Everyone gets a one-tap emergency mode with **Call 112**, first-aid video guides and a triage check.
+Healthcare access and emergency platform for Nigeria. Patients find the right hospital, see live availability, book a slot and get a QR pass. Hospitals run an operations portal that pushes status changes to patients in real time. Everyone gets a one-tap emergency mode with a direct call to the nearest emergency unit (plus 112 as backup), first-aid video guides and a triage check.
 
 ## Contact
 
@@ -10,6 +10,14 @@ Team Medic Hub · medichubnigeria@gmail.com · 07042744090
 
 - Language picker (header globe, Profile › Language): English, Nigerian Pidgin, Yoruba, Hausa, Igbo. Interface strings are translated; first-aid steps stay in English until clinically reviewed. Translations need native-speaker review before launch.
 - Medic AI (`/assistant`): health Q&A in the chosen language with danger-sign detection (shows Call 112), optional Health Vault personalisation (off by default), and a Stop button. Inside the Claude artifact viewer it uses the `sample` capability; elsewhere set `VITE_AI_ENDPOINT` to a server route like `server/ask.example.ts`. With neither, it answers from the built-in first-aid guides.
+
+## Status freshness and direct emergency calls
+
+- **Reminder every 12 hours.** Hourly emails become noise that busy staff ignore; 24 hours is too long for emergency information. Twelve hours matches the two-shift handover most hospitals run. If a hospital's live status hasn't been touched for 12 hours, its operations contact gets a reminder; at 24 hours, an urgent one.
+- **Patients are warned.** After 12 hours cards and profiles say "Not updated · may have changed"; after 24 hours "availability at risk, call before you go". Hospitals listed from public records show "Not updated by this hospital yet".
+- **One-tap "Still correct"** on the hospital dashboard confirms nothing has changed. Any status change also counts as an update.
+- **Call the hospital directly.** Emergency mode puts the nearest open emergency unit with a direct line first (big call button, distance, freshness), with 112 kept underneath as a free backup.
+- Demo: the sweep runs in the browser and reminders arrive as in-app notifications (Lagoon Crest starts 13 hours stale so you can see it). Production: `server/reminders.example.ts` runs hourly (Vercel Cron / Supabase scheduled function) and emails via Resend; schema has `hospital_status.last_reminder_at`.
 
 ## Deploy to GitHub Pages
 
@@ -69,7 +77,7 @@ src/
 ## Honest notes
 - Hospitals are fictional demo facilities. Nothing claims a real hospital is verified.
 - First-aid videos are real British Red Cross and St John Ambulance videos, linked or embedded from their source (YouTube privacy-enhanced mode). They are UK-produced; the app reminds users that the number in Nigeria is 112. Durations aren't shown because we didn't measure them.
-- Medic Hub does not dispatch ambulances. `Call 112` is a `tel:` link; on desktop it tells you to dial from a phone.
+- Medic Hub does not dispatch ambulances. Emergency calls are `tel:` links to the hospital's own emergency line or 112; on desktop it tells you to dial from a phone.
 - The map is a dependency-free schematic using real coordinates, with “Directions” opening Google Maps. Swap in Mapbox/Leaflet tiles if you have a key.
 - Password reset shows the reset link on screen (“demo inbox”) because email isn't connected.
 - Nutrition values are approximate per typical serving.

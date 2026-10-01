@@ -94,6 +94,8 @@ export interface HospitalStatus {
   theatre: Availability
   bloodBank: Availability
   updatedAt: string
+  /** When the last "please update" reminder went to the hospital */
+  lastReminderAt?: string
 }
 export type ResourceKey = 'oxygen' | 'pharmacy' | 'laboratory' | 'ambulance' | 'maternity' | 'theatre' | 'bloodBank'
 

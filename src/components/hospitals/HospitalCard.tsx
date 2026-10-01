@@ -1,3 +1,4 @@
+import { FreshnessNote } from './FreshnessNote'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { CalendarClock, MapPin, Navigation, Wind, Activity, Siren } from 'lucide-react'
@@ -39,8 +40,8 @@ export function HospitalCard({ h, distance, highlight, onHover }: { h: HospitalV
         </h3>
         <p className="mt-0.5 text-[13px] text-slate-500">{h.type} · {h.area}, {h.city}</p>
 
-        {h.publicRecord && <p className="mt-3 text-[11px] font-medium text-slate-500">Demo status · not yet reported by this hospital</p>}
-        <dl className={h.publicRecord ? "mt-1.5 grid grid-cols-3 gap-2" : "mt-3.5 grid grid-cols-3 gap-2"}>
+        <FreshnessNote h={h} className="mt-3" />
+        <dl className="mt-2 grid grid-cols-3 gap-2">
           <div><dt className="flex items-center gap-1 text-[11px] font-medium text-slate-500"><Siren size={11} /> Emergency</dt><dd className="mt-1"><Pill tone={emergencyTone(h.status.emergency)} size="sm">{emergencyLabel(h.status.emergency)}</Pill></dd></div>
           <div><dt className="flex items-center gap-1 text-[11px] font-medium text-slate-500"><Activity size={11} /> Capacity</dt><dd className="mt-1"><Pill tone={capTone(h.capacity.overall)} size="sm">{capLabel(h.capacity.overall)}</Pill></dd></div>
           <div><dt className="flex items-center gap-1 text-[11px] font-medium text-slate-500"><Wind size={11} /> Oxygen</dt><dd className="mt-1"><Pill tone={availTone(h.status.oxygen)} size="sm">{availLabel(h.status.oxygen)}</Pill></dd></div>

@@ -93,7 +93,7 @@ export async function setEmergency(hospitalId: string, level: EmergencyLevel) {
   const h = db.select('hospitals').find((x) => x.id === hospitalId)!
   db.write(['hospital_status', 'hospital_departments'], (d) => {
     const s = d.hospital_status.find((x) => x.hospitalId === hospitalId)!
-    s.emergency = level; s.updatedAt = new Date().toISOString()
+    s.emergency = level; s.updatedAt = new Date().toISOString(); s.lastReminderAt = undefined
     const ed = d.hospital_departments.find((x) => x.hospitalId === hospitalId && x.name === 'Emergency Department')
     if (ed) ed.status = level
   })
@@ -105,7 +105,7 @@ export async function setResource(hospitalId: string, key: ResourceKey, value: A
   await latency(160)
   db.write(['hospital_status'], (d) => {
     const s = d.hospital_status.find((x) => x.hospitalId === hospitalId)!
-    s[key] = value; s.updatedAt = new Date().toISOString()
+    s[key] = value; s.updatedAt = new Date().toISOString(); s.lastReminderAt = undefined
   })
 }
 

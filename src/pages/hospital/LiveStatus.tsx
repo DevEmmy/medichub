@@ -1,3 +1,4 @@
+import { FreshnessPanel } from '../../components/hospital-admin/FreshnessPanel'
 import { Link } from 'react-router-dom'
 import { BedDouble, ExternalLink, HeartPulse } from 'lucide-react'
 import { useMyHospital } from '../../hooks/useMyHospital'
@@ -21,6 +22,7 @@ export default function LiveStatus() {
         <div><h1 className="text-[28px] font-semibold">Live status & capacity</h1><p className="mt-1 text-[14px] text-slate-600">What you set here is what patients see on your profile and in search, instantly.</p></div>
         <a href={`#/hospitals/${h.id}`} target="_blank" rel="noopener" className="btn btn-secondary btn-sm"><ExternalLink size={15} /> Open patient view</a>
       </div>
+      <FreshnessPanel h={h} detailed />
       <section className="rounded-2xl bg-white p-5 ring-1 ring-line"><h2 className="text-[17px] font-semibold">Emergency & services</h2><StatusControls h={h} resources={RESOURCES} showEcap /></section>
 
       <section className="rounded-2xl bg-white p-5 ring-1 ring-line" aria-labelledby="beds-h">

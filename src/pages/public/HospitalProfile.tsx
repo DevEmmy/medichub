@@ -1,3 +1,4 @@
+import { FreshnessNote } from '../../components/hospitals/FreshnessNote'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -112,6 +113,7 @@ export default function HospitalProfile() {
           </div>
           <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             <button onClick={() => openBook()} disabled={!bookable.length} className="btn btn-primary col-span-2 sm:col-span-1 sm:px-6"><CalendarClock size={17} /> Book a slot</button>
+            {h.emergencyPhone && h.status.emergency !== 'closed' && <a href={`tel:${h.emergencyPhone.replace(/\s/g, '')}`} className="btn col-span-2 bg-danger-600 text-white hover:bg-danger-700 sm:col-span-1" data-testid="call-emergency-line"><Siren size={16} /> Call emergency unit</a>}
             {h.phone && <a href={`tel:${h.phone.replace(/\s/g, '')}`} className="btn btn-secondary"><Phone size={16} /> Call</a>}
             <a href={directionsUrl(h.lat, h.lng, location)} target="_blank" rel="noopener noreferrer" className="btn btn-secondary"><Navigation size={16} /> Directions</a>
             {h.status.emergency !== 'closed' && <a href={directionsUrl(h.lat, h.lng, location)} target="_blank" rel="noopener noreferrer" className="btn col-span-2 bg-danger-50 text-danger-700 ring-1 ring-danger-100 hover:bg-danger-100 sm:col-span-1"><Siren size={16} /> Emergency route</a>}
@@ -148,12 +150,13 @@ export default function HospitalProfile() {
               <h2 id="live-h" className="flex items-center gap-2 text-[20px] font-semibold">Live status</h2>
               <span className="flex items-center gap-2 text-[12.5px] font-medium text-slate-500">{h.publicRecord && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10.5px] font-bold uppercase text-amber-700">Demo</span>}<span className="relative flex h-2 w-2"><span className="absolute inset-0 animate-pulseRing rounded-full bg-brand-500" /><span className="relative h-2 w-2 rounded-full bg-brand-500" /></span>Updated {relTime(h.status.updatedAt > h.capacity.updatedAt ? h.status.updatedAt : h.capacity.updatedAt)} {h.publicRecord ? '' : ' by hospital staff'}</span>
             </div>
+            <FreshnessNote h={h} variant="banner" className="mt-3" />
             <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
               <Tile label="Emergency department" icon={Siren} changed={changed.has('emergency')} big><Pill tone={emergencyTone(h.status.emergency)} pulse={h.status.emergency !== 'closed'}>{emergencyLabel(h.status.emergency)}</Pill><span className="ml-2 text-[12px] text-slate-500">Emergency capacity: <strong className={cn(changed.has('ecap') && 'text-amber-700')}>{capLabel(h.capacity.emergency)}</strong></span></Tile>
               <Tile label="Overall capacity" icon={Activity} changed={changed.has('overall')} big><Pill tone={capTone(h.capacity.overall)}>{capLabel(h.capacity.overall)}</Pill><span className="ml-2 text-[12px] text-slate-500 tabular"><BedDouble size={12} className="-mt-0.5 mr-1 inline" />{h.capacity.bedsAvailable} of {h.capacity.bedsTotal} beds free</span></Tile>
               {RES.map((r) => <Tile key={r.key} label={r.label} icon={r.icon} changed={changed.has(r.key)}><Pill tone={availTone(h.status[r.key])}>{availLabel(h.status[r.key])}</Pill></Tile>)}
             </div>
-            <p className="mt-2 text-[12px] text-slate-500">{h.publicRecord ? 'Demo status for illustration. This hospital does not report to Medic Hub yet.' : 'Status is reported by the hospital and can change quickly.'} Call ahead if you're travelling far. In an emergency, call 112.</p>
+            <p className="mt-2 text-[12px] text-slate-500">{h.publicRecord ? 'Demo status for illustration. This hospital does not report to Medic Hub yet.' : 'Status is reported by the hospital and can change quickly.'} Call ahead if you're travelling far. In an emergency, call the hospital's emergency line or 112.</p>
           </section>
 
           <PhotoGallery hue={h.hue} seed={h.id} cover={h.cover} name={h.name} note={h.publicRecord ? 'Illustrative photos, not of this hospital.' : undefined} />

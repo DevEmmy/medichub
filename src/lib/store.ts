@@ -38,8 +38,8 @@ export interface Tables {
 }
 export type TableName = keyof Tables
 
-const KEY = 'medichub.db.v5'
-const SCHEMA_VERSION = 5
+const KEY = 'medichub.db.v6'
+const SCHEMA_VERSION = 6
 
 type Listener = (tables: TableName[], remote: boolean) => void
 
