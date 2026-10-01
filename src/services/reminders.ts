@@ -1,3 +1,4 @@
+import { rpc } from '../lib/rpc'
 // Status-freshness reminders.
 // Demo: a sweep runs in the browser on load and every few minutes, and the "email" is
 // delivered as an in-app notification to the hospital's staff (no email provider here).
@@ -5,7 +6,8 @@
 // real email (and SMS) to the hospital's operations contact.
 import { db } from '../lib/store'
 import { notify } from './notifications'
-import { requireHospitalStaff } from './core'
+import { runAutomations } from './plans'
+import { mailer, requireHospitalStaff } from './core'
 import { ageLabel, hoursSince, lastUpdate, REMINDER_HOURS, STALE_HOURS } from '../utils/freshness'
 
 export function runReminderSweep(now = Date.now()) {
@@ -30,25 +32,27 @@ export function runReminderSweep(now = Date.now()) {
   for (const x of due) {
     const urgent = x.hrs >= STALE_HOURS
     const title = urgent ? 'Urgent: patients now see your status as at risk' : 'Reminder: confirm your live status'
-    const body = `Your live status was last updated ${ageLabel(x.hrs)} ago. ${urgent ? 'Patients are being told availability may be wrong.' : 'Patients now see a "not updated" warning.'} Update it or tap "Still correct". Email reminder sent to ${x.email}.`
+    const body = `Your live status was last updated ${ageLabel(x.hrs)} ago. ${urgent ? 'Patients are being told availability may be wrong.' : 'Patients now see a "not updated" warning.'} Update it or tap "Still correct".${mailer.enabled ? ` Email reminder sent to ${x.email}.` : ''}`
     staff.filter((s) => s.hospitalId === x.id).forEach((s) => notify(s.userId, 'system', title, body, '/hospital/status'))
+    if (mailer.enabled && x.email) mailer.send({ to: x.email, subject: `${title} · ${x.name}`, text: `${body.replace(/ Email reminder sent to .*$/, '')}\n\nOpen your portal: ${mailer.appUrl}#/hospital/status\n\nMedic Hub` }).catch((e) => console.error('[mail] reminder failed', e))
   }
   return due.length
 }
 
 /** "Nothing has changed" — staff confirm the current status is still correct. */
-export async function confirmStatus(hospitalId: string) {
+export const confirmStatus = rpc('reminders.confirmStatus', async function confirmStatus(hospitalId: string) {
   requireHospitalStaff(hospitalId)
   const at = new Date().toISOString()
   db.write(['hospital_status', 'hospital_capacity'], (d) => {
     const s = d.hospital_status.find((x) => x.hospitalId === hospitalId); if (s) { s.updatedAt = at; s.lastReminderAt = undefined }
     const c = d.hospital_capacity.find((x) => x.hospitalId === hospitalId); if (c) c.updatedAt = at
   })
-}
+})
 
-let timer: number | undefined
+let timer: ReturnType<typeof setInterval> | undefined
 export function startReminderScheduler() {
   if (timer) return
-  try { runReminderSweep() } catch { /* best effort */ }
-  timer = window.setInterval(() => { try { runReminderSweep() } catch { /* ignore */ } }, 5 * 60_000)
+  const tick = () => { try { runReminderSweep() } catch { /* best effort */ } try { runAutomations() } catch { /* best effort */ } }
+  tick()
+  timer = setInterval(tick, 5 * 60_000)
 }

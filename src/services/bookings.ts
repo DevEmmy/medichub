@@ -1,7 +1,8 @@
+import { rpc } from '../lib/rpc'
 import { db } from '../lib/store'
 import { bookingRef, secureToken, uid } from '../lib/ids'
 import type { Booking, BookingStatus } from '../types'
-import { AppError, latency, requireHospitalStaff, requireRole } from './core'
+import { AppError, ENUMS, latency, oneOf, requireHospitalStaff, requireRole, text } from './core'
 import { notify } from './notifications'
 import { fmtDate, fmtTime, nowHHMM, today } from '../utils/date'
 
@@ -41,8 +42,9 @@ export function isUpcoming(b: Booking) {
   return (b.status === 'confirmed' || b.status === 'pending' || b.status === 'checked_in' || b.status === 'in_consultation') && (b.date > today() || (b.date === today()))
 }
 
-export async function createBooking(input: { hospitalId: string; serviceId: string; slotId: string; reason?: string; phone?: string }): Promise<BookingView> {
+export const createBooking = rpc('bookings.createBooking', async function createBooking(input: { hospitalId: string; serviceId: string; slotId: string; reason?: string; phone?: string }): Promise<BookingView> {
   const u = requireRole('patient')
+  text(input?.slotId, 100, 'a time', true); text(input.hospitalId, 100, 'a hospital', true); text(input.serviceId, 100, 'a service', true); text(input.reason, 500, 'a reason'); text(input.phone, 40, 'a phone number')
   await latency(650)
   const slot = db.select('hospital_slots').find((s) => s.id === input.slotId && s.hospitalId === input.hospitalId && s.serviceId === input.serviceId)
   if (!slot) throw new AppError('not_found', 'That time is no longer offered. Pick another time.')
@@ -68,9 +70,9 @@ export async function createBooking(input: { hospitalId: string; serviceId: stri
   notify(u.id, 'booking', status === 'confirmed' ? 'Booking confirmed' : 'Booking requested', `${svc?.name} at ${h.name}, ${fmtDate(slot.date)} at ${fmtTime(slot.time)}. Ref ${ref}.`, `/app/bookings/${booking.id}`)
   db.select('hospital_staff').filter((s) => s.hospitalId === h.id).forEach((s) => notify(s.userId, 'booking', 'New booking', `${u.name} booked ${svc?.name} for ${fmtDate(slot.date)} at ${fmtTime(slot.time)}.`, '/hospital/bookings'))
   return enrich(booking)
-}
+})
 
-export async function cancelMyBooking(id: string) {
+export const cancelMyBooking = rpc('bookings.cancelMyBooking', async function cancelMyBooking(id: string) {
   const u = requireRole('patient')
   await latency(400)
   const b = db.select('bookings').find((x) => x.id === id && x.patientId === u.id)
@@ -78,7 +80,7 @@ export async function cancelMyBooking(id: string) {
   if (!['pending', 'confirmed'].includes(b.status)) throw new AppError('invalid', 'This booking can no longer be cancelled here. Call the hospital.')
   transition(b, 'cancelled', 'patient', 'Cancelled by patient')
   db.select('hospital_staff').filter((s) => s.hospitalId === b.hospitalId).forEach((s) => notify(s.userId, 'booking', 'Booking cancelled', `${b.patientName} cancelled ${b.ref}.`, '/hospital/bookings'))
-}
+})
 
 function transition(b: Booking, status: BookingStatus, by: 'patient' | 'hospital', note?: string) {
   const releases = (status === 'cancelled' || status === 'no_show') && (b.status === 'pending' || b.status === 'confirmed')
@@ -116,7 +118,8 @@ const STATUS_MSG: Partial<Record<BookingStatus, [string, string]>> = {
   no_show: ['Missed appointment', 'You were marked as not attending. Book again if you still need care.'],
 }
 
-export async function setBookingStatus(hospitalId: string, id: string, status: BookingStatus, note?: string) {
+export const setBookingStatus = rpc('bookings.setBookingStatus', async function setBookingStatus(hospitalId: string, id: string, status: BookingStatus, note?: string) {
+  oneOf(status, ENUMS.bookingStatus, 'booking status'); text(note, 500, 'a note')
   requireHospitalStaff(hospitalId)
   await latency(220)
   const b = db.select('bookings').find((x) => x.id === id && x.hospitalId === hospitalId)
@@ -130,9 +133,9 @@ export async function setBookingStatus(hospitalId: string, id: string, status: B
     const svc = db.select('hospital_services').find((s) => s.id === b.serviceId)
     db.write(['health_events'], (d) => d.health_events.push({ id: uid('he_'), userId: b.patientId, type: 'visit', title: svc?.name ?? 'Hospital visit', detail: 'Visit completed.', date: b.date, place: h.name }))
   }
-}
+})
 
-export async function rescheduleBooking(hospitalId: string, id: string, newSlotId: string) {
+export const rescheduleBooking = rpc('bookings.rescheduleBooking', async function rescheduleBooking(hospitalId: string, id: string, newSlotId: string) {
   requireHospitalStaff(hospitalId)
   await latency(300)
   const b = db.select('bookings').find((x) => x.id === id && x.hospitalId === hospitalId)
@@ -149,7 +152,7 @@ export async function rescheduleBooking(hospitalId: string, id: string, newSlotI
     d.booking_events.push({ id: uid('be_'), bookingId: id, status: 'confirmed', at: now, by: 'hospital', note: `Rescheduled to ${fmtDate(ns.date)} ${fmtTime(ns.time)}` })
   })
   notify(b.patientId, 'booking', 'Your appointment has been updated', `${b.ref} moved to ${fmtDate(ns.date)} at ${fmtTime(ns.time)}.`, `/app/bookings/${id}`)
-}
+})
 
 /** Check-in lookup. Accepts a booking reference ("MED-7X82K9") or the full QR payload. */
 export function lookupBooking(hospitalId: string, code: string): BookingView | { error: string } {

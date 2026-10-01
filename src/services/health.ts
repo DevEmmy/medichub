@@ -1,7 +1,8 @@
+import { rpc } from '../lib/rpc'
 import { db } from '../lib/store'
 import { uid } from '../lib/ids'
 import type { EmergencyContact, HealthEvent, HealthProfile, PatientProfile } from '../types'
-import { AppError, latency, requireRole } from './core'
+import { AppError, ENUMS, latency, num, oneOf, requireRole, text } from './core'
 import { notify } from './notifications'
 import { today } from '../utils/date'
 
@@ -11,8 +12,16 @@ export function myHealthProfile(): HealthProfile {
   return db.select('health_profiles').find((p) => p.userId === u.id) ?? { userId: u.id, bloodGroup: '', genotype: '', allergies: [], conditions: [], medications: [], notes: '', updatedAt: new Date().toISOString() }
 }
 
-export async function saveHealthProfile(patch: Partial<HealthProfile>) {
+export const saveHealthProfile = rpc('health.saveHealthProfile', async function saveHealthProfile(patch: Partial<HealthProfile>) {
   const u = requireRole('patient')
+  const strs = (v: unknown, label: string) => { if (v !== undefined && (!Array.isArray(v) || v.length > 50 || v.some((x) => typeof x !== 'string' || x.length > 120))) throw new AppError('validation', `Invalid ${label}.`) }
+  strs(patch?.allergies, 'allergies'); strs(patch.conditions, 'conditions')
+  if (patch.medications !== undefined && (!Array.isArray(patch.medications) || patch.medications.length > 50 || patch.medications.some((m) => !m || typeof m.name !== 'string' || typeof m.dose !== 'string'))) throw new AppError('validation', 'Invalid medications.')
+  text(patch.bloodGroup, 10, 'blood group'); text(patch.genotype, 10, 'genotype'); text(patch.notes, 4000, 'notes')
+  if (patch.heightCm !== undefined && patch.heightCm !== null) patch.heightCm = num(patch.heightCm, 30, 260, 'height')
+  if (patch.weightKg !== undefined && patch.weightKg !== null) patch.weightKg = num(patch.weightKg, 1, 400, 'weight')
+  patch = { bloodGroup: patch.bloodGroup, genotype: patch.genotype, allergies: patch.allergies, conditions: patch.conditions, medications: patch.medications, heightCm: patch.heightCm, weightKg: patch.weightKg, notes: patch.notes }
+  Object.keys(patch).forEach((k) => patch[k as keyof typeof patch] === undefined && delete patch[k as keyof typeof patch])
   await latency(300)
   const now = new Date().toISOString()
   db.write(['health_profiles', 'health_events'], (d) => {
@@ -24,27 +33,31 @@ export async function saveHealthProfile(patch: Partial<HealthProfile>) {
     d.health_events.push({ id: uid('he_'), userId: u.id, type: 'profile', title: 'Health profile updated', date: today() })
   })
   notify(u.id, 'profile', 'Your profile was updated', 'Your Health Vault changes were saved.', '/app/health')
-}
+})
 
 export function myPatientProfile(): PatientProfile | null {
   const u = requireRole('patient')
   return db.select('patient_profiles').find((p) => p.userId === u.id) ?? null
 }
-export async function savePatientProfile(patch: Partial<PatientProfile>) {
+export const savePatientProfile = rpc('health.savePatientProfile', async function savePatientProfile(patch: Partial<PatientProfile>) {
   const u = requireRole('patient')
+  text(patch?.city, 80, 'city'); text(patch.dateOfBirth, 10, 'date of birth'); text(patch.gender, 30, 'gender')
+  patch = { city: patch.city, dateOfBirth: patch.dateOfBirth, gender: patch.gender, onboarded: patch.onboarded === undefined ? undefined : patch.onboarded === true }
+  Object.keys(patch).forEach((k) => patch[k as keyof typeof patch] === undefined && delete patch[k as keyof typeof patch])
   await latency()
   db.write(['patient_profiles'], (d) => {
     let p = d.patient_profiles.find((x) => x.userId === u.id)
     if (!p) { p = { userId: u.id, onboarded: false }; d.patient_profiles.push(p) }
     Object.assign(p, patch, { userId: u.id })
   })
-}
+})
 
 export function myContacts(): EmergencyContact[] {
   const u = requireRole('patient')
   return db.select('emergency_contacts').filter((c) => c.userId === u.id).sort((a, b) => Number(b.primary) - Number(a.primary))
 }
-export async function saveContact(c: Partial<EmergencyContact> & { name: string; phone: string; relationship: string }) {
+export const saveContact = rpc('health.saveContact', async function saveContact(c: Partial<EmergencyContact> & { name: string; phone: string; relationship: string }) {
+  text(c?.name, 120, 'a name', true); text(c.phone, 40, 'a phone number', true); text(c.relationship, 60, 'a relationship', true)
   const u = requireRole('patient')
   await latency()
   if (!c.name.trim()) throw new AppError('validation', 'Enter the contact\'s name.')
@@ -58,8 +71,8 @@ export async function saveContact(c: Partial<EmergencyContact> & { name: string;
       if (x) Object.assign(x, { name: c.name.trim(), phone: c.phone.trim(), relationship: c.relationship, primary: makePrimary ? true : x.primary })
     } else d.emergency_contacts.push({ id: uid('ec_'), userId: u.id, name: c.name.trim(), phone: c.phone.trim(), relationship: c.relationship, primary: makePrimary })
   })
-}
-export async function deleteContact(id: string) {
+})
+export const deleteContact = rpc('health.deleteContact', async function deleteContact(id: string) {
   const u = requireRole('patient')
   await latency()
   db.write(['emergency_contacts'], (d) => {
@@ -67,20 +80,21 @@ export async function deleteContact(id: string) {
     d.emergency_contacts = d.emergency_contacts.filter((x) => !(x.id === id && x.userId === u.id))
     if (wasPrimary) { const first = d.emergency_contacts.find((x) => x.userId === u.id); if (first) first.primary = true }
   })
-}
+})
 
 export function myEvents(): HealthEvent[] {
   const u = requireRole('patient')
   return db.select('health_events').filter((e) => e.userId === u.id)
 }
-export async function addEvent(e: Omit<HealthEvent, 'id' | 'userId'>) {
+export const addEvent = rpc('health.addEvent', async function addEvent(e: Omit<HealthEvent, 'id' | 'userId'>) {
+  oneOf(e?.type, ENUMS.eventType, 'record type'); text(e.title, 200, 'a title', true); text(e.detail, 2000, 'details'); text(e.place, 200, 'a place'); if (!/^\d{4}-\d{2}-\d{2}$/.test(String(e.date))) throw new AppError('validation', 'Choose a valid date.')
   const u = requireRole('patient')
   await latency()
   if (!e.title.trim()) throw new AppError('validation', 'Give the entry a title.')
   db.write(['health_events'], (d) => d.health_events.push({ ...e, title: e.title.trim(), id: uid('he_'), userId: u.id }))
-}
-export async function deleteEvent(id: string) {
+})
+export const deleteEvent = rpc('health.deleteEvent', async function deleteEvent(id: string) {
   const u = requireRole('patient')
   await latency(150)
   db.write(['health_events'], (d) => { d.health_events = d.health_events.filter((x) => !(x.id === id && x.userId === u.id)) })
-}
+})

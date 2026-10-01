@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { DEMO } from '../../config'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowRight, BadgeCheck, CalendarCheck, Clock, HeartPulse, MapPin, Siren, Activity, ShieldCheck, ScanLine, Building2, UserRound, Stethoscope, Wind, PlayCircle, Megaphone } from 'lucide-react'
@@ -143,7 +144,7 @@ export default function Landing() {
       </section>
 
       {/* Demo access */}
-      <section className="container-app" aria-labelledby="demo-h">
+      {DEMO && <section className="container-app" aria-labelledby="demo-h">
         <div className="rounded-[28px] bg-ink p-6 text-white sm:p-8">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div><p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-brand-300">Demo mode</p><h2 id="demo-h" className="mt-1.5 text-[26px] font-semibold text-white">Step into any side of Medic Hub</h2></div>
@@ -160,7 +161,7 @@ export default function Landing() {
             ))}
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* Problem → solution */}
       <section className="container-app py-20" aria-labelledby="how-h">
@@ -205,7 +206,7 @@ export default function Landing() {
             <p className="eyebrow">For hospitals</p>
             <h2 id="hosp-h" className="mt-2 text-[32px] font-semibold leading-tight sm:text-[38px]">An operations portal, not just a listing.</h2>
             <p className="mt-4 max-w-lg text-[15.5px] leading-relaxed text-slate-600">Update emergency status and capacity in a tap. Manage services, departments and appointment slots. See today's queue and check patients in by QR. Verified facilities get the Medic Hub badge.</p>
-            <div className="mt-6 flex flex-wrap gap-3"><Link to="/signup?role=hospital" className="btn btn-primary">Register your facility</Link><button onClick={() => demo('hospital')} className="btn btn-secondary">Try the hospital demo</button></div>
+            <div className="mt-6 flex flex-wrap gap-3"><Link to="/signup?role=hospital" className="btn btn-primary">Register your facility</Link>{DEMO ? <button onClick={() => demo('hospital')} className="btn btn-secondary">Try the hospital demo</button> : <Link to="/login" className="btn btn-secondary">Hospital sign in</Link>}</div>
           </div>
           <div className="card p-5">
             <div className="flex items-center justify-between"><p className="font-display text-[15px] font-semibold">Today</p><p className="text-[12px] text-slate-500">Lagoon Crest · Ops</p></div>
@@ -224,7 +225,7 @@ export default function Landing() {
 
       <footer className="border-t border-line bg-white/60">
         <div className="container-app flex flex-col gap-4 py-10 text-[13px] text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3"><Logo compact /><span>Medic Hub · Hackathon build. Federal hospitals are listed from public records; their live status is demo data.</span></div>
+          <div className="flex items-center gap-3"><Logo compact /><span>{DEMO ? 'Medic Hub · Hackathon build. Hospitals listed from public records show demo status.' : `© ${new Date().getFullYear()} Medic Hub · Hospital information is provided by each hospital.`}</span></div>
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1"><span>Team Medic Hub · <a href="mailto:medichubnigeria@gmail.com" className="font-medium text-ink hover:underline">medichubnigeria@gmail.com</a> · <span className="select-all">07042744090</span></span><span className="flex items-center gap-1.5"><Clock size={14} /> In an emergency, call <strong className="text-ink">112</strong>.</span></p>
         </div>
       </footer>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Activity, CalendarRange, ClipboardList, ScanLine, Building2, Megaphone, ShieldCheck, LayoutDashboard, Menu, X, ExternalLink, Settings } from 'lucide-react'
+import { Activity, CalendarRange, ClipboardList, ScanLine, Building2, Megaphone, ShieldCheck, LayoutDashboard, Menu, X, ExternalLink, Settings, Star, Crown, BarChart3, Workflow, QrCode } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useLive } from '../hooks/useLive'
 import { db } from '../lib/store'
@@ -22,7 +22,12 @@ const NAV = [
   { to: '/hospital/check-in', label: 'Check-in', icon: ScanLine },
   { to: '/hospital/profile', label: 'Hospital profile', icon: Building2 },
   { to: '/hospital/announcements', label: 'Announcements', icon: Megaphone },
+  { to: '/hospital/reviews', label: 'Ratings', icon: Star },
+  { to: '/hospital/qr', label: 'Entrance QR poster', icon: QrCode },
   { to: '/hospital/verification', label: 'Verification', icon: ShieldCheck },
+  { to: '/hospital/analytics', label: 'Analytics', icon: BarChart3, pro: true },
+  { to: '/hospital/automations', label: 'Automations', icon: Workflow, pro: true },
+  { to: '/hospital/plan', label: 'Plan', icon: Crown },
 ]
 
 export function HospitalLayout() {
@@ -48,6 +53,7 @@ export function HospitalLayout() {
         {NAV.map((n) => (
           <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => cn('group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-medium transition', isActive ? 'bg-white text-ink' : 'text-white/70 hover:bg-white/[0.07] hover:text-white')}>
             <n.icon size={18} /> <span className="flex-1">{n.label}</span>
+            {'pro' in n && n.pro && <span className="rounded bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-300">Pro</span>}
             {n.to === '/hospital/bookings' && pending > 0 && <span className="rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-white tabular">{pending}</span>}
           </NavLink>
         ))}

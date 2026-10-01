@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Camera, CircleCheck, ScanLine, TriangleAlert, UserRound, X } from 'lucide-react'
+import { Camera, CircleCheck, ScanLine, TriangleAlert, UserRound } from 'lucide-react'
 import { useMyHospital } from '../../hooks/useMyHospital'
 import { useLive } from '../../hooks/useLive'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
@@ -9,37 +9,8 @@ import { BookingStatusPill } from '../../components/ui/StatusPill'
 import { Spinner } from '../../components/ui/States'
 import { useToast } from '../../contexts/ToastContext'
 import { fmtDate, fmtTime, today, relTime } from '../../utils/date'
-import { isFramed } from '../../utils/env'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const hasDetector = typeof window !== 'undefined' && 'BarcodeDetector' in window && !isFramed
-
-function CameraScanner({ onCode, onClose }: { onCode: (c: string) => void; onClose: () => void }) {
-  const video = useRef<HTMLVideoElement>(null)
-  const [err, setErr] = useState<string | null>(null)
-  useEffect(() => {
-    let stream: MediaStream | null = null, raf = 0, alive = true
-    ;(async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-        if (!video.current) return
-        video.current.srcObject = stream; await video.current.play()
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const det = new (window as any).BarcodeDetector({ formats: ['qr_code'] })
-        const tick = async () => { if (!alive || !video.current) return; try { const r = await det.detect(video.current); if (r[0]?.rawValue) { onCode(r[0].rawValue); return } } catch { /* keep scanning */ } raf = requestAnimationFrame(tick) }
-        tick()
-      } catch { setErr('Camera unavailable. Enter the booking code instead.') }
-    })()
-    return () => { alive = false; cancelAnimationFrame(raf); stream?.getTracks().forEach((t) => t.stop()) }
-  }, [onCode])
-  return (
-    <div className="relative overflow-hidden rounded-2xl bg-ink">
-      {err ? <p className="p-6 text-center text-[14px] text-white/80">{err}</p> : <video ref={video} className="aspect-video w-full object-cover" muted playsInline />}
-      <div className="pointer-events-none absolute inset-8 rounded-2xl border-2 border-white/60" aria-hidden />
-      <button onClick={onClose} className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-black/40 text-white" aria-label="Close camera"><X size={18} /></button>
-    </div>
-  )
-}
+import { DEMO } from '../../config'
+import { QrScanner } from '../../components/ui/QrScanner'
 
 export default function CheckIn() {
   useDocumentTitle('Check-in')
@@ -75,14 +46,14 @@ export default function CheckIn() {
       <div className="space-y-5">
         <div><h1 className="text-[28px] font-semibold">Check-in</h1><p className="mt-1 text-[14px] text-slate-600">Scan the patient's QR pass or type their booking code.</p></div>
         <section className="rounded-2xl bg-white p-5 ring-1 ring-line">
-          {scan && hasDetector ? <CameraScanner onCode={(c) => { setScan(false); setCode(c.split(':')[1] ?? c); lookup(c) }} onClose={() => setScan(false)} /> : null}
+          {scan ? <div className="mb-4"><QrScanner hint="Point at the patient's QR pass" onCode={(c) => { setScan(false); setCode(c.split(':')[1] ?? c); lookup(c) }} onClose={() => setScan(false)} /></div> : null}
           <form onSubmit={submit} className="mt-0 flex flex-col gap-2 sm:flex-row">
             <label className="relative flex-1"><span className="sr-only">Booking code</span><ScanLine size={20} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="MED-7X82K9" autoFocus autoComplete="off" spellCheck={false} className="input h-14 pl-12 font-mono text-[20px] tracking-[0.1em]" /></label>
             <button className="btn btn-primary h-14 px-6">Find booking</button>
-            {hasDetector && <button type="button" onClick={() => setScan(true)} className="btn btn-secondary h-14"><Camera size={18} /> Scan QR</button>}
+            <button type="button" onClick={() => setScan(true)} className="btn btn-secondary h-14" data-testid="open-scanner"><Camera size={18} /> Scan QR</button>
           </form>
-          <p className="mt-2 text-[12.5px] text-slate-500">Try <button type="button" onClick={() => { setCode('MED-7X82K9'); lookup('MED-7X82K9') }} className="font-mono font-semibold text-brand-700 hover:underline">MED-7X82K9</button> (demo patient, tomorrow) or <button type="button" onClick={() => { setCode('MED-K7RA5N'); lookup('MED-K7RA5N') }} className="font-mono font-semibold text-brand-700 hover:underline">MED-K7RA5N</button> (today).</p>
+          {DEMO && <p className="mt-2 text-[12.5px] text-slate-500">Try <button type="button" onClick={() => { setCode('MED-7X82K9'); lookup('MED-7X82K9') }} className="font-mono font-semibold text-brand-700 hover:underline">MED-7X82K9</button> (demo patient, tomorrow) or <button type="button" onClick={() => { setCode('MED-K7RA5N'); lookup('MED-K7RA5N') }} className="font-mono font-semibold text-brand-700 hover:underline">MED-K7RA5N</button> (today).</p>}
         </section>
 
         <AnimatePresence mode="wait">

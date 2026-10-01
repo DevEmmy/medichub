@@ -7,6 +7,7 @@
  *    LLM provider and returns { text } (see server/ask.example.ts). API keys never ship to the browser.
  * 3. Offline / unavailable: answers built from Medic Hub's own first-aid guides.
  */
+import { API_URL, BACKEND } from '../config'
 import { EMERGENCY_GUIDES, HEALTH_RESOURCES } from '../data/firstAid'
 import { LANGUAGES, type Lang } from '../i18n/strings'
 import type { HealthProfile } from '../types'
@@ -26,7 +27,7 @@ export function getSampler(): Promise<Sampler | null> {
         if (s) return s
       }
     } catch { /* fall through */ }
-    const endpoint = import.meta.env.VITE_AI_ENDPOINT as string | undefined
+    const endpoint = (import.meta.env.VITE_AI_ENDPOINT as string | undefined) || (BACKEND ? `${API_URL}/api/ask` : undefined)
     if (endpoint) {
       const viaEndpoint: Sampler = async (input, opts) => {
         const r = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: input }), signal: opts.signal })

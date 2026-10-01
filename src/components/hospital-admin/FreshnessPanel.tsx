@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { DEMO } from '../../config'
 import { BellRing, CheckCheck, Mail } from 'lucide-react'
 import { ageLabel, freshnessOf, hoursSince, lastUpdate, REMINDER_HOURS, STALE_HOURS } from '../../utils/freshness'
 import { confirmStatus } from '../../services/reminders'
@@ -36,7 +37,7 @@ export function FreshnessPanel({ h, detailed = false }: { h: HospitalView; detai
           <p className="rounded-xl bg-canvas p-3"><strong className="block text-ink">Every {REMINDER_HOURS} hours</strong>Medic Hub emails your operations contact ({h.admin.email || h.email}) if the status hasn't been touched, timed to shift handover.</p>
           <p className="rounded-xl bg-canvas p-3"><strong className="block text-ink">After {REMINDER_HOURS} hours</strong>Patients see "Not updated, may have changed" on your card and profile.</p>
           <p className="rounded-xl bg-canvas p-3"><strong className="block text-ink">After {STALE_HOURS} hours</strong>Patients are told availability is at risk and to call before travelling. A second, urgent email goes out.</p>
-          <p className="flex items-center gap-1.5 text-[12px] text-slate-500 sm:col-span-3"><Mail size={13} /> In this demo the emails arrive in your notifications (bell icon) instead of an inbox.</p>
+          <p className="flex items-center gap-1.5 text-[12px] text-slate-500 sm:col-span-3"><Mail size={13} /> {DEMO ? 'In this demo the emails arrive in your notifications (bell icon) instead of an inbox.' : 'Reminders also appear in your notifications (bell icon).'}</p>
         </div>
       )}
     </section>

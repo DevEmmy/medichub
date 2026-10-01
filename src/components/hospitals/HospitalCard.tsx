@@ -1,4 +1,5 @@
 import { FreshnessNote } from './FreshnessNote'
+import { Stars } from '../ui/Stars'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { CalendarClock, MapPin, Navigation, Wind, Activity, Siren } from 'lucide-react'
@@ -23,7 +24,7 @@ export function HospitalCard({ h, distance, highlight, onHover }: { h: HospitalV
     <motion.article layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.22 }}
       onMouseEnter={() => onHover?.(h.id)} onMouseLeave={() => onHover?.(null)}
       className={`card group flex flex-col overflow-hidden transition ${highlight ? 'ring-2 ring-brand-400' : ''}`} aria-labelledby={`h-${h.id}`}>
-      <HospitalCover hue={h.hue} seed={h.id} cover={h.cover} className="h-36" still>
+      <HospitalCover hue={h.hue} seed={h.id} cover={h.cover ?? h.photos?.[0]?.src} className="h-36" still>
         <div className="absolute right-3 top-3 flex gap-1.5">
           <span className="rounded-full bg-black/30 px-2.5 py-1 text-[11.5px] font-semibold text-white backdrop-blur">{h.openNow ? (h.is24h ? 'Open 24 hours' : 'Open now') : 'Closed now'}</span>
         </div>
@@ -36,9 +37,10 @@ export function HospitalCard({ h, distance, highlight, onHover }: { h: HospitalV
         <h3 id={`h-${h.id}`} className="mt-3 flex items-start gap-1.5 text-[17px] font-semibold leading-snug">
           <Link to={`/hospitals/${h.id}`} className="hover:underline">{h.name}</Link>
           {h.verification === 'verified' && <VerifiedBadge className="mt-1" />}
-          {h.publicRecord && <span className="mt-0.5 shrink-0 rounded-md bg-sky-50 px-1.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-sky-700 ring-1 ring-sky-100">Federal</span>}
+          {h.publicRecord && <span className="mt-0.5 shrink-0 rounded-md bg-sky-50 px-1.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-sky-700 ring-1 ring-sky-100">{h.ownership ?? 'Federal'}</span>}
         </h3>
         <p className="mt-0.5 text-[13px] text-slate-500">{h.type} · {h.area}, {h.city}</p>
+        <p className="mt-1 flex items-center gap-1.5 text-[12.5px]">{h.rating.count ? <><Stars value={h.rating.avg} size={13} /><strong className="text-ink tabular">{h.rating.avg.toFixed(1)}</strong><span className="text-slate-500">({h.rating.count} verified {h.rating.count === 1 ? 'visit' : 'visits'})</span></> : <span className="text-slate-400">No ratings yet</span>}</p>
 
         <FreshnessNote h={h} className="mt-3" />
         <dl className="mt-2 grid grid-cols-3 gap-2">

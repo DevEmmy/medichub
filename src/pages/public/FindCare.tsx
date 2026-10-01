@@ -28,7 +28,7 @@ export default function FindCare() {
   useDocumentTitle('Find care')
   const [params, setParams] = useSearchParams()
   const ready = useFirstLoad(450)
-  const { data: all, error } = useLive(listPublicHospitals, ['hospitals', 'hospital_status', 'hospital_capacity', 'hospital_slots', 'hospital_services'])
+  const { data: all, error } = useLive(listPublicHospitals, ['hospitals', 'hospital_status', 'hospital_capacity', 'hospital_slots', 'hospital_services', 'hospital_reviews'])
   const { location } = useUserLocation()
   const [q, setQ] = useState(params.get('q') ?? '')
   const [toggles, setToggles] = useState<Set<Toggle>>(() => new Set([params.get('emergency') && 'emergency', params.get('open') && 'open', params.get('appt') && 'appt'].filter(Boolean) as Toggle[]))
@@ -36,7 +36,7 @@ export default function FindCare() {
   const [type, setType] = useState('')
   const [city, setCity] = useState('')
   const [maxKm, setMaxKm] = useState(0)
-  const [sort, setSort] = useState<'nearest' | 'soonest' | 'name'>(params.get('emergency') ? 'nearest' : 'nearest')
+  const [sort, setSort] = useState<'nearest' | 'soonest' | 'rating' | 'name'>(params.get('emergency') ? 'nearest' : 'nearest')
   const [view, setView] = useState<'list' | 'map'>('list')
   const [selected, setSelected] = useState<string | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -68,6 +68,7 @@ export default function FindCare() {
       if (emergencyMode) { const rank = (x: HospitalView) => (x.status.emergency === 'open' ? 0 : 1); if (rank(a.h) !== rank(b.h)) return rank(a.h) - rank(b.h) }
       if (sort === 'nearest' && a.d !== null && b.d !== null) return a.d - b.d
       if (sort === 'soonest') return soon(a.h).localeCompare(soon(b.h))
+      if (sort === 'rating') return (b.h.rating.avg - a.h.rating.avg) || (b.h.rating.count - a.h.rating.count)
       return a.h.name.localeCompare(b.h.name)
     })
     return r
@@ -143,7 +144,7 @@ export default function FindCare() {
         {active.length > 0 && <button onClick={clearAll} className="text-[12.5px] font-semibold text-slate-500 hover:text-ink">Clear all</button>}
         <label className="ml-auto flex items-center gap-2 text-[13px] text-slate-600">Sort
           <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="rounded-lg border border-line bg-white px-2 py-1.5 text-[13px] font-medium text-ink">
-            <option value="nearest" disabled={!location}>Nearest</option><option value="soonest">Next available</option><option value="name">Name</option>
+            <option value="nearest" disabled={!location}>Nearest</option><option value="soonest">Next available</option><option value="rating">Top rated</option><option value="name">Name</option>
           </select>
         </label>
       </div>

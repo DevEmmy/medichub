@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { uploadFile } from '../../lib/files'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, Check, FileText, Upload, X, CircleCheck, LocateFixed, PartyPopper } from 'lucide-react'
@@ -53,7 +54,8 @@ export default function Onboarding() {
   const submit = async () => {
     setBusy(true)
     try {
-      await submitOnboarding({ ...f, website: f.website || undefined, documents: Object.entries(docFiles).filter(([, v]) => v).map(([k, v]) => ({ name: v!.name, kind: k, size: v!.size })) })
+      const documents = await Promise.all(Object.entries(docFiles).filter(([, v]) => v).map(async ([k, v]) => ({ name: v!.name, kind: k, size: v!.size, fileId: await uploadFile(v!) })))
+      await submitOnboarding({ ...f, website: f.website || undefined, documents })
       refresh(); setDir(1); setStep(7)
       toast('success', 'Your verification documents were submitted')
     } catch (e) { toast('error', 'Submission failed', (e as Error).message) } finally { setBusy(false) }
@@ -69,7 +71,7 @@ export default function Onboarding() {
       <TextArea label="Description" value={f.description} onChange={(e) => set({ description: e.target.value })} error={errors.description} placeholder="What you offer and who you serve." />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Main phone" type="tel" value={f.phone} onChange={(e) => set({ phone: e.target.value })} error={errors.phone} placeholder="+234 …" />
-        <Field label="Emergency line (optional)" type="tel" value={f.emergencyPhone} onChange={(e) => set({ emergencyPhone: e.target.value })} />
+        <Field label="Emergency unit direct line" hint="Shown first when patients open Emergency mode. Leave blank to use your main number." type="tel" value={f.emergencyPhone} onChange={(e) => set({ emergencyPhone: e.target.value })} />
         <Field label="Public email" type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} />
         <Field label="Website (optional)" type="url" value={f.website} onChange={(e) => set({ website: e.target.value })} placeholder="https://" />
       </div>

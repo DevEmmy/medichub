@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { DEMO } from '../../config'
 import { Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { LogOut, UserRound, Leaf, Bell, RotateCcw } from 'lucide-react'
@@ -34,8 +35,8 @@ export function UserMenu({ dark = false, links }: { dark?: boolean; links?: { to
             {items.map((l) => (
               <Link key={l.to} to={l.to} onClick={() => setOpen(false)} className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[14px] text-slate-700 hover:bg-canvas"><l.icon size={16} /> {l.label}</Link>
             ))}
-            <button onClick={() => { if (!confirmReset) { setConfirmReset(true); return } db.reset(); setOpen(false); setConfirmReset(false); signOut(); nav('/'); toast('success', 'Demo data reset', 'All demo accounts and data are back to their starting state.') }}
-              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[14px] text-slate-700 hover:bg-canvas"><RotateCcw size={16} /> {confirmReset ? 'Tap again to reset demo data' : 'Reset demo data'}</button>
+            {DEMO && <button onClick={() => { if (!confirmReset) { setConfirmReset(true); return } db.reset(); setOpen(false); setConfirmReset(false); signOut(); nav('/'); toast('success', 'Demo data reset', 'All demo accounts and data are back to their starting state.') }}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[14px] text-slate-700 hover:bg-canvas"><RotateCcw size={16} /> {confirmReset ? 'Tap again to reset demo data' : 'Reset demo data'}</button>}
             <div className="my-1 h-px bg-line" />
             <button onClick={() => { signOut(); setOpen(false); nav('/'); toast('info', 'Signed out') }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[14px] text-slate-700 hover:bg-canvas"><LogOut size={16} /> Sign out</button>
           </motion.div>

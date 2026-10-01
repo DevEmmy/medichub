@@ -44,6 +44,12 @@ const CheckIn = lazy(() => import('./pages/hospital/CheckIn'))
 const ProfileEditor = lazy(() => import('./pages/hospital/ProfileEditor'))
 const Announcements = lazy(() => import('./pages/hospital/Announcements'))
 const Verification = lazy(() => import('./pages/hospital/Verification'))
+const HospitalReviews = lazy(() => import('./pages/hospital/Reviews'))
+const Plan = lazy(() => import('./pages/hospital/Plan'))
+const Analytics = lazy(() => import('./pages/hospital/Analytics'))
+const Automations = lazy(() => import('./pages/hospital/Automations'))
+const QrPoster = lazy(() => import('./pages/hospital/QrPoster'))
+const Scan = lazy(() => import('./pages/public/Scan'))
 
 const AdminReview = lazy(() => import('./pages/admin/Review'))
 
@@ -80,6 +86,7 @@ export default function App() {
                       <Route path="/triage" element={<Triage />} />
                       <Route path="/wellness" element={<Wellness />} />
                       <Route path="/assistant" element={<Assistant />} />
+                      <Route path="/scan" element={<Scan />} />
                       <Route path="/app" element={<RequireRole roles={['patient']}><PatientHome /></RequireRole>} />
                       <Route path="/app/bookings" element={<RequireRole roles={['patient']}><MyBookings /></RequireRole>} />
                       <Route path="/app/bookings/:id" element={<RequireRole roles={['patient']}><BookingPassPage /></RequireRole>} />
@@ -97,6 +104,11 @@ export default function App() {
                       <Route path="/hospital/profile" element={<ProfileEditor />} />
                       <Route path="/hospital/announcements" element={<Announcements />} />
                       <Route path="/hospital/verification" element={<Verification />} />
+                      <Route path="/hospital/reviews" element={<HospitalReviews />} />
+                      <Route path="/hospital/plan" element={<Plan />} />
+                      <Route path="/hospital/analytics" element={<Analytics />} />
+                      <Route path="/hospital/automations" element={<Automations />} />
+                      <Route path="/hospital/qr" element={<QrPoster />} />
                       <Route path="/hospital/notifications" element={<Notifications />} />
                     </Route>
 

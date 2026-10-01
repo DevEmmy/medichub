@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { uploadFile } from '../../lib/files'
 import { BadgeCheck, CircleDashed, FileText, Upload, CircleCheck, TriangleAlert, XCircle, Search } from 'lucide-react'
 import { useLive } from '../../hooks/useLive'
 import { useMyHospital } from '../../hooks/useMyHospital'
@@ -56,13 +57,13 @@ export default function Verification() {
         <h2 className="text-[17px] font-semibold">Documents</h2>
         <ul className="mt-3 divide-y divide-line">
           {docs.map((d) => <li key={d.id} className="flex items-center gap-3 py-2.5"><FileText size={18} className="text-slate-400" /><span className="flex-1 text-[14px] text-ink">{d.name}</span><span className="text-[12px] text-slate-500">{fmtBytes(d.size)}</span><span className={cn('rounded-full px-2 py-0.5 text-[11.5px] font-semibold', d.status === 'accepted' ? 'bg-brand-50 text-brand-700' : d.status === 'needs_attention' ? 'bg-amber-50 text-amber-700' : 'bg-mist text-slate-600')}>{d.status === 'accepted' ? 'Accepted' : d.status === 'needs_attention' ? 'Needs attention' : 'Submitted'}</span></li>)}
-          {docs.length === 0 && <li className="py-4 text-[14px] text-slate-500">No documents on file. Documents for seeded demo hospitals were verified offline.</li>}
+          {docs.length === 0 && <li className="py-4 text-[14px] text-slate-500">No documents on file yet.</li>}
         </ul>
         {needs && (
           <div className="mt-4 space-y-3 rounded-xl bg-canvas p-4">
             <label className="btn btn-secondary btn-sm cursor-pointer"><Upload size={15} /> Add documents<input type="file" multiple accept=".pdf,image/*" className="sr-only" onChange={(e) => setFiles([...files, ...Array.from(e.target.files ?? [])])} /></label>
             {files.map((f) => <p key={f.name} className="text-[13px] text-slate-700">{f.name} · {fmtBytes(f.size)}</p>)}
-            <button disabled={!files.length || busy} onClick={async () => { setBusy(true); try { await resubmitVerification(hospitalId, files.map((f) => ({ name: f.name, kind: f.type || 'document', size: f.size }))); setFiles([]); toast('success', 'Your verification documents were submitted') } finally { setBusy(false) } }} className="btn btn-primary btn-sm">{busy && <Spinner />} Resubmit for review</button>
+            <button disabled={!files.length || busy} onClick={async () => { setBusy(true); try { const docs = await Promise.all(files.map(async (f) => ({ name: f.name, kind: f.type || 'document', size: f.size, fileId: await uploadFile(f) }))); await resubmitVerification(hospitalId, docs); setFiles([]); toast('success', 'Your verification documents were submitted') } catch (e) { toast('error', 'Upload failed', (e as Error).message) } finally { setBusy(false) } }} className="btn btn-primary btn-sm">{busy && <Spinner />} Resubmit for review</button>
           </div>
         )}
       </section>

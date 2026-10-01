@@ -33,7 +33,7 @@ export const ALL_SPECIALTIES = Object.keys(SPECIALTY_SERVICE)
 export const FACILITY_OPTIONS = ['24/7 emergency', 'ICU', 'NICU', 'Theatre', 'Blood bank', 'Oxygen plant', 'Ambulance', 'Pharmacy', 'Laboratory', 'CT scan', 'MRI', 'X-ray', 'Ultrasound', 'Dialysis', 'Maternity ward', 'Parking', 'NHIA accepted', 'HMO accepted']
 
 interface Def {
-  id: string; publicRecord?: boolean; name: string; type: HospitalType; tagline: string; area: string; city: string; state: string; lat: number; lng: number
+  id: string; publicRecord?: boolean; ownership?: 'Federal' | 'State' | 'Private'; name: string; type: HospitalType; tagline: string; area: string; city: string; state: string; lat: number; lng: number
   specialties: string[]; is24h: boolean; hue: number; verification: Verification; beds: number; facilities: string[]; street: string
   emergency: EmergencyLevel; overall: OverallCapacity; ecap: EmergencyCapacity; oxygen: Availability; phone: string; year: string
 }
@@ -60,6 +60,13 @@ const DEFS: Def[] = [
   D({ id: 'h_uith', publicRecord: true, name: "University of Ilorin Teaching Hospital", type: 'Teaching', tagline: 'Federal tertiary hospital in Ilorin', area: "Oke-Ose", city: 'Ilorin', state: 'Kwara', lat: 8.464, lng: 4.581, street: "Old Jebba Road, Oke-Ose", specialties: ['Emergency medicine', 'General practice', 'Surgery', 'Pediatrics', 'Laboratory', 'Pharmacy'], is24h: true, hue: 160, beds: 600, emergency: 'open', overall: 'available', ecap: 'available', oxygen: 'available', facilities: ['24/7 emergency', 'Laboratory', 'Pharmacy', 'NHIA accepted'], phone: '', year: '1980' }),
   D({ id: 'h_fmcabeokuta', publicRecord: true, name: "Federal Medical Centre, Abeokuta", type: 'Federal Medical Centre', tagline: 'Federal tertiary hospital in Abeokuta', area: "Idi-Aba", city: 'Abeokuta', state: 'Ogun', lat: 7.167, lng: 3.35, street: "Idi-Aba", specialties: ['Emergency medicine', 'General practice', 'Pediatrics', 'Obstetrics & Gynecology', 'Laboratory', 'Pharmacy'], is24h: true, hue: 155, beds: 300, emergency: 'open', overall: 'moderate', ecap: 'available', oxygen: 'available', facilities: ['24/7 emergency', 'Laboratory', 'Pharmacy', 'NHIA accepted'], phone: '', year: '1993' }),
   D({ id: 'h_juth', publicRecord: true, name: "Jos University Teaching Hospital", type: 'Teaching', tagline: 'Federal tertiary hospital in Jos', area: "Lamingo", city: 'Jos', state: 'Plateau', lat: 9.957, lng: 8.891, street: "Lamingo", specialties: ['Emergency medicine', 'General practice', 'Surgery', 'Pediatrics', 'Laboratory', 'Pharmacy'], is24h: true, hue: 145, beds: 600, emergency: 'open', overall: 'moderate', ecap: 'available', oxygen: 'available', facilities: ['24/7 emergency', 'Laboratory', 'Pharmacy', 'NHIA accepted'], phone: '', year: '1981' }),
+  // Listed from public records with real photos (Wikimedia Commons); not onboarded
+  D({ id: 'h_oauthc', publicRecord: true, ownership: 'Federal', name: 'Obafemi Awolowo University Teaching Hospitals Complex', type: 'Teaching', tagline: 'Federal tertiary hospital in Ile-Ife', area: 'Ile-Ife', city: 'Ile-Ife', state: 'Osun', lat: 7.5185, lng: 4.5244, street: 'Ile-Ife', specialties: ['Emergency medicine', 'General practice', 'Surgery', 'Pediatrics', 'Obstetrics & Gynecology', 'Laboratory', 'Pharmacy'], is24h: true, hue: 150, beds: 600, emergency: 'open', overall: 'moderate', ecap: 'available', oxygen: 'available', facilities: ['24/7 emergency', 'Laboratory', 'Pharmacy', 'NHIA accepted'], phone: '', year: '1967' }),
+  D({ id: 'h_gbagada', publicRecord: true, ownership: 'State', name: 'Gbagada General Hospital', type: 'General', tagline: 'Lagos State general hospital', area: 'Gbagada', city: 'Lagos', state: 'Lagos', lat: 6.552, lng: 3.387, street: 'Gbagada', specialties: ['Emergency medicine', 'General practice', 'Pediatrics', 'Obstetrics & Gynecology', 'Laboratory', 'Pharmacy'], is24h: true, hue: 165, beds: 200, emergency: 'busy', overall: 'high', ecap: 'limited', oxygen: 'available', facilities: ['24/7 emergency', 'Laboratory', 'Pharmacy', 'NHIA accepted'], phone: '', year: '1985' }),
+  D({ id: 'h_stnicholas', publicRecord: true, ownership: 'Private', name: 'St. Nicholas Hospital', type: 'Private', tagline: 'Private hospital on Lagos Island', area: 'Lagos Island', city: 'Lagos', state: 'Lagos', lat: 6.453, lng: 3.392, street: 'Campbell Street, Lagos Island', specialties: ['Emergency medicine', 'General practice', 'Surgery', 'Dialysis', 'Laboratory', 'Pharmacy'], is24h: true, hue: 200, beds: 60, emergency: 'open', overall: 'moderate', ecap: 'available', oxygen: 'available', facilities: ['24/7 emergency', 'Laboratory', 'Pharmacy', 'HMO accepted'], phone: '', year: '1968' }),
+  D({ id: 'h_oouth', publicRecord: true, ownership: 'State', name: 'Olabisi Onabanjo University Teaching Hospital', type: 'Teaching', tagline: 'Ogun State teaching hospital in Sagamu', area: 'Sagamu', city: 'Sagamu', state: 'Ogun', lat: 6.848, lng: 3.646, street: 'Sagamu', specialties: ['Emergency medicine', 'General practice', 'Surgery', 'Pediatrics', 'Obstetrics & Gynecology', 'Laboratory', 'Pharmacy'], is24h: true, hue: 140, beds: 300, emergency: 'open', overall: 'moderate', ecap: 'available', oxygen: 'limited', facilities: ['24/7 emergency', 'Laboratory', 'Pharmacy', 'NHIA accepted'], phone: '', year: '1986' }),
+  D({ id: 'h_gwarinpa', publicRecord: true, ownership: 'State', name: 'Gwarinpa General Hospital', type: 'General', tagline: 'FCT general hospital in Gwarinpa', area: 'Gwarinpa', city: 'Abuja', state: 'FCT', lat: 9.105, lng: 7.406, street: 'Gwarinpa', specialties: ['Emergency medicine', 'General practice', 'Pediatrics', 'Obstetrics & Gynecology', 'Laboratory', 'Pharmacy'], is24h: true, hue: 155, beds: 150, emergency: 'open', overall: 'moderate', ecap: 'available', oxygen: 'available', facilities: ['24/7 emergency', 'Laboratory', 'Pharmacy', 'NHIA accepted'], phone: '', year: '2007' }),
+  D({ id: 'h_bsuth', publicRecord: true, ownership: 'State', name: 'Benue State University Teaching Hospital', type: 'Teaching', tagline: 'State teaching hospital in Makurdi', area: 'Makurdi', city: 'Makurdi', state: 'Benue', lat: 7.733, lng: 8.521, street: 'Makurdi', specialties: ['Emergency medicine', 'General practice', 'Surgery', 'Pediatrics', 'Laboratory', 'Pharmacy'], is24h: true, hue: 170, beds: 300, emergency: 'open', overall: 'available', ecap: 'available', oxygen: 'available', facilities: ['24/7 emergency', 'Laboratory', 'Pharmacy', 'NHIA accepted'], phone: '', year: '2012' }),
   // In the verification queue (not publicly listed until approved)
   D({ id: 'h_tankehills', name: 'Tanke Hills Medical Centre', type: 'Private', tagline: 'New care for Ilorin', area: 'Tanke', city: 'Ilorin', state: 'Kwara', lat: 8.4799, lng: 4.6106, street: '6 Tanke Oke-Odo Road', specialties: ['General practice', 'Emergency medicine', 'Laboratory', 'Pharmacy', 'Dental'], hue: 165, beds: 45, verification: 'under_review', phone: '+234 31 222 045', year: '2025' }),
   D({ id: 'h_ughellivale', name: 'Wuse Vale Diagnostics', type: 'Private', tagline: 'Imaging and lab diagnostics', area: 'Wuse', city: 'Abuja', state: 'FCT', lat: 9.0643, lng: 7.4731, street: '17 Adetokunbo Ademola Crescent', specialties: ['Radiology', 'Laboratory'], hue: 210, beds: 0, verification: 'pending', emergency: 'closed', ecap: 'full', phone: '+234 9 290 8800', year: '2024' }),
@@ -67,6 +74,8 @@ const DEFS: Def[] = [
 
 // Lagoon Crest starts 13 hours stale so the reminder + "Still correct" flow is visible in the demo;
 // Tanke Hills (in review) shows the over-a-day warning once approved.
+const OWN_DESC = { Federal: 'a federal tertiary hospital', State: 'a state-owned hospital', Private: 'a private hospital' } as const
+
 const STATUS_AGE_MIN: Record<string, number> = { h_lagooncrest: 13 * 60 + 10, h_tankehills: 31 * 60 }
 
 const DOCTOR_NAMES = ['Dr. Adaeze Nwosu', 'Dr. Tunde Bakare', 'Dr. Halima Sani', 'Dr. Chinedu Eze', 'Dr. Funmilayo Adeyemi', 'Dr. Ibrahim Musa', 'Dr. Ngozi Okonkwo', 'Dr. Segun Afolabi', 'Dr. Zainab Bello', 'Dr. Emeka Obi', 'Dr. Yetunde Ogunleye', 'Dr. Aisha Lawal', 'Dr. Kelechi Umeh', 'Dr. Bola Johnson', 'Dr. Musa Danjuma', 'Dr. Ifeoma Chukwu']
@@ -138,7 +147,7 @@ export function buildSeed(): Tables {
     users: [], patient_profiles: [], hospitals: [], hospital_staff: [], hospital_departments: [], hospital_services: [],
     hospital_doctors: [], hospital_status: [], hospital_capacity: [], hospital_slots: [], bookings: [], booking_events: [],
     health_profiles: [], health_events: [], emergency_contacts: [], notifications: [], hospital_announcements: [],
-    hospital_documents: [], password_resets: [],
+    hospital_documents: [], password_resets: [], hospital_reviews: [],
   }
   const plain = 'plain:' + DEMO_PASSWORD
   const mkUser = (id: string, email: string, role: User['role'], name: string, phone?: string): User => ({ id, email, passwordHash: plain, role, name, phone, createdAt: now })
@@ -156,9 +165,9 @@ export function buildSeed(): Tables {
     const slug = d.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
     const h: Hospital = {
       id: d.id, slug, name: d.name, type: d.type, tagline: d.tagline,
-      description: d.publicRecord ? `${d.name} is a federal tertiary hospital in ${d.area}, ${d.city}, ${d.state} State, listed from public records of federal health institutions. It has not joined Medic Hub yet, so the live status, capacity and appointment slots shown here are demo data, not reported by the hospital.` : `${d.name} is ${DESCRIPTIONS[d.type]} Located in ${d.area}, ${d.city}, the team serves patients across ${d.state} State. This is a fictional facility created for the Medic Hub demo.`,
+      description: d.publicRecord ? `${d.name} is ${OWN_DESC[d.ownership ?? 'Federal']} in ${d.area}, ${d.city}, ${d.state} State, listed from public records. It has not joined Medic Hub yet, so the live status, capacity and appointment slots shown here are demo data, not reported by the hospital.` : `${d.name} is ${DESCRIPTIONS[d.type]} Located in ${d.area}, ${d.city}, the team serves patients across ${d.state} State. This is a fictional facility created for the Medic Hub demo.`,
       address: `${d.street}, ${d.area}`, area: d.area, city: d.city, state: d.state, lat: d.lat, lng: d.lng,
-      phone: d.phone, emergencyPhone: d.phone ? d.phone.replace(/\d{2}$/, '99') : '', email: d.publicRecord ? '' : `care@${slug.split('-').slice(0, 2).join('')}.demo`, publicRecord: d.publicRecord,
+      phone: d.phone, emergencyPhone: d.phone ? d.phone.replace(/\d{2}$/, '99') : '', email: d.publicRecord ? '' : `care@${slug.split('-').slice(0, 2).join('')}.demo`, publicRecord: d.publicRecord, ownership: d.publicRecord ? (d.ownership ?? 'Federal') : undefined, plan: 'basic', automations: { patientReminders: false, lowBedAlert: false, weeklyReport: false },
       website: undefined, socials: [], hue: d.hue, is24h: d.is24h, hours: hours(d.is24h), facilities: d.facilities, specialties: d.specialties,
       verification: d.publicRecord ? 'draft' : d.verification, registration: { cacNumber: `RC ${1200000 + idx * 7391}`, licenseNumber: `HEFAMAA/${d.state.slice(0, 2).toUpperCase()}/${2000 + idx}/${1000 + idx * 13}`, licensingBody: d.state === 'Lagos' ? 'HEFAMAA (Lagos State)' : `${d.state} State Ministry of Health`, yearEstablished: d.year, bedCount: d.beds },
       admin: { name: d.id === 'h_lagooncrest' ? 'Dr. Folake Adebayo' : 'Facility Administrator', title: 'Medical Director', email, phone: d.phone },
@@ -260,8 +269,8 @@ export function buildSeed(): Tables {
   book('u_p3', 'h_lagooncrest', 'General consultation', 2, '09:00', 'pending', 'Blood pressure review')
   book('u_p6', 'h_lagooncrest', 'Cardiology consultation', 3, '11:00', 'confirmed')
   // Historical bookings for analytics
-  for (let d = 1; d <= 6; d++) {
-    const n = 3 + ((d * 7) % 5)
+  for (let d = 1; d <= 29; d++) {
+    const n = (d > 6 ? 2 : 3) + ((d * 7) % 5)
     for (let k = 0; k < n; k++) {
       const svc = ['General consultation', 'Paediatric clinic', 'Cardiology consultation', 'Ultrasound scan'][k % 4]
       const time = SLOT_TIMES[(k + d) % SLOT_TIMES.length]
@@ -270,6 +279,24 @@ export function buildSeed(): Tables {
       b.ref = 'MED-' + (b.id.toUpperCase().replace('BK_', 'H') + 'XXXXX').slice(0, 6)
     }
   }
+
+  // Ratings for the fictional demo hospital only (real hospitals start with none — no invented reviews)
+  const RV: [number, string[], string][] = [
+    [5, ['Short wait', 'Kind staff'], 'Booked the night before, was seen within 20 minutes of arriving. Nurses were patient with my mum.'],
+    [4, ['Clean', 'Clear explanation'], 'Doctor explained everything clearly. Pharmacy queue was a bit slow.'],
+    [5, ['Kind staff'], 'The paediatric clinic staff were wonderful with my son.'],
+    [3, ['Long wait'], 'Good care but I waited over an hour past my slot.'],
+    [4, ['Clean', 'Fair price'], ''],
+    [5, ['Short wait', 'Clear explanation'], 'QR check-in at the front desk took seconds.'],
+  ]
+  const seen = new Set<string>()
+  t.bookings.filter((b) => b.hospitalId === 'h_lagooncrest' && b.status === 'completed' && b.date < today()).forEach((b) => {
+    if (seen.has(b.patientId) || seen.size >= RV.length) return
+    const [rating, tags, comment] = RV[seen.size]; seen.add(b.patientId)
+    const u = t.users.find((x) => x.id === b.patientId)!
+    const parts = u.name.split(' ')
+    t.hospital_reviews.push({ id: 'rv_' + b.id, hospitalId: b.hospitalId, patientId: b.patientId, authorName: `${parts[0]} ${parts[parts.length - 1][0]}.`, bookingId: b.id, rating, tags, comment, createdAt: b.date + 'T15:00:00.000Z', reply: rating <= 3 ? { body: 'Thank you for telling us. We have added a second triage nurse for the morning clinic.', at: b.date + 'T18:00:00.000Z' } : undefined })
+  })
 
   // Health profile and timeline
   t.health_profiles.push({ userId: 'u_amaka', bloodGroup: 'O+', genotype: 'AA', allergies: ['Penicillin'], conditions: ['Asthma'], medications: [{ name: 'Salbutamol inhaler', dose: '2 puffs as needed' }], heightCm: 168, weightKg: 64, notes: 'Carries a reliever inhaler in her bag.', updatedAt: now })

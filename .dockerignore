@@ -1,9 +1,8 @@
 node_modules
 dist
-dist-single
-qa/shots
-*.log
-.DS_Store
-data
-server-dist
 dist-app
+dist-single
+server-dist
+data
+qa/shots
+.git

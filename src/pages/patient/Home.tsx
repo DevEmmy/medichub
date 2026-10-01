@@ -112,7 +112,7 @@ export default function Home() {
             <div className="-mx-4 mt-3 flex snap-x gap-3 overflow-x-auto px-4 pb-2 scrollbar-none sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0">
               {nearby.map(({ h, d }) => (
                 <Link key={h.id} to={`/hospitals/${h.id}`} className="card w-[78%] shrink-0 snap-start overflow-hidden transition hover:-translate-y-0.5 sm:w-auto">
-                  <HospitalCover hue={h.hue} seed={h.id} cover={h.cover} className="h-28" still />
+                  <HospitalCover hue={h.hue} seed={h.id} cover={h.cover ?? h.photos?.[0]?.src} className="h-28" still />
                   <div className="p-4 pt-3">
                   <div className="flex items-center gap-3">
                     <HospitalAvatar name={h.name} hue={h.hue} logo={h.logo} size={44} />

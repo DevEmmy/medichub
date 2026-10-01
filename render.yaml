@@ -1,0 +1,23 @@
+# One-click deploy on Render: Dashboard › New › Blueprint › pick this repo.
+# You'll be asked for the secret values marked sync: false.
+services:
+  - type: web
+    name: medichub
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false          # paste your PostgreSQL URL (Neon / Render Postgres / Supabase)
+      - key: ADMIN_EMAIL
+        sync: false          # first reviewer account, e.g. medichubnigeria@gmail.com
+      - key: ADMIN_PASSWORD
+        sync: false          # 10+ characters; change it after first sign-in
+      - key: APP_URL
+        sync: false          # e.g. https://medichub.onrender.com/
+      - key: RESEND_API_KEY
+        sync: false          # emails: password resets, status reminders, weekly reports
+      - key: MAIL_FROM
+        sync: false          # e.g. Medic Hub <alerts@yourdomain.ng>
+      - key: ANTHROPIC_API_KEY
+        sync: false          # Medic AI answers (optional)

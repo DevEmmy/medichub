@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom'
-import { House, Search, ShieldPlus, Siren, BookOpenCheck, LogIn, Bot } from 'lucide-react'
+import { House, Search, ShieldPlus, Siren, BookOpenCheck, LogIn, Bot, QrCode } from 'lucide-react'
 import { useT } from '../i18n/LanguageContext'
 import { LanguageButton, LanguagePicker } from '../components/navigation/LanguagePicker'
 import { useAuth } from '../contexts/AuthContext'
@@ -51,6 +51,7 @@ export function AppLayout() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+            {(!user || user.role === 'patient') && <Link to="/scan" aria-label="Scan a hospital QR code" className="grid h-10 w-10 place-items-center rounded-full text-slate-700 hover:bg-mist" data-testid="scan-link"><QrCode size={19} /></Link>}
             <LanguageButton onClick={() => setLangOpen(true)} compact={false} />
             <div className="hidden sm:block"><EmergencyButton /></div>
             {patient ? (<><NotificationBell allHref="/app/notifications" /><UserMenu /></>) : user ? (

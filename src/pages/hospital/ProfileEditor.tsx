@@ -219,6 +219,40 @@ function Doctors({ h }: { h: HospitalView }) {
   )
 }
 
+const PHOTO_LABELS = ['Main building', 'Entrance', 'Reception & waiting area', 'Emergency unit', 'Patient ward', 'Laboratory', 'Theatre', 'Pharmacy', 'Maternity', 'Other']
+function PhotosEditor({ h }: { h: HospitalView }) {
+  const { toast } = useToast()
+  const [busy, setBusy] = useState(false)
+  const photos = h.photos ?? []
+  const save = (next: { src: string; label: string }[]) => updateHospitalProfile(h.id, { photos: next })
+  const add = async (files?: FileList | null) => {
+    if (!files?.length) return
+    setBusy(true)
+    try {
+      const room = Math.max(0, 8 - photos.length)
+      const added = await Promise.all([...files].slice(0, room).map(async (f, i) => ({ src: await resizeImage(f, 1400, 0.8), label: PHOTO_LABELS[Math.min(photos.length + i, PHOTO_LABELS.length - 1)] })))
+      await save([...photos, ...added]); toast('success', `${added.length} photo${added.length === 1 ? '' : 's'} added`)
+    } catch (e) { toast('error', 'Upload failed', (e as Error).message) } finally { setBusy(false) }
+  }
+  return (
+    <div>
+      <p className="text-[13px] font-medium text-slate-700">Photos <span className="font-normal text-slate-500">({photos.length}/8) · real photos of your facility, inside and out</span></p>
+      <ul className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {photos.map((p, i) => (
+          <li key={i} className="overflow-hidden rounded-xl ring-1 ring-line">
+            <img src={p.src} alt={p.label} className="aspect-[4/3] w-full object-cover" />
+            <div className="space-y-1.5 p-2">
+              <select value={p.label} onChange={(e) => save(photos.map((x, k) => (k === i ? { ...x, label: e.target.value } : x)))} className="w-full rounded-lg border border-line px-2 py-1 text-[12.5px]" aria-label="Photo label">{PHOTO_LABELS.map((l) => <option key={l}>{l}</option>)}</select>
+              <button onClick={() => save(photos.filter((_, k) => k !== i))} className="btn btn-ghost btn-sm w-full">Remove</button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {photos.length < 8 && <label className="btn btn-secondary btn-sm mt-2 cursor-pointer">{busy ? <Spinner /> : <ImagePlus size={15} />} Add photos<input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => { add(e.target.files); e.target.value = '' }} /></label>}
+    </div>
+  )
+}
+
 function Media({ h }: { h: HospitalView }) {
   const { toast } = useToast()
   const [busy, setBusy] = useState<string | null>(null)
@@ -234,7 +268,7 @@ function Media({ h }: { h: HospitalView }) {
         <HospitalCover hue={h.hue} seed={h.id} cover={h.cover} className="mt-2 h-40 rounded-2xl" />
         <div className="mt-2 flex gap-2">
           <label className="btn btn-secondary btn-sm cursor-pointer">{busy === 'cover' ? <Spinner /> : <ImagePlus size={15} />} Upload cover<input type="file" accept="image/*" className="sr-only" onChange={(e) => upload('cover', e.target.files?.[0])} /></label>
-          {h.cover && <button onClick={() => updateHospitalProfile(h.id, { cover: undefined })} className="btn btn-ghost btn-sm">Remove</button>}
+          {h.cover && <button onClick={() => updateHospitalProfile(h.id, { cover: '' })} className="btn btn-ghost btn-sm">Remove</button>}
         </div>
       </div>
       <div>
@@ -242,9 +276,10 @@ function Media({ h }: { h: HospitalView }) {
         <div className="mt-2 flex items-center gap-4">
           <HospitalAvatar name={h.name} hue={h.hue} logo={h.logo} size={72} />
           <label className="btn btn-secondary btn-sm cursor-pointer">{busy === 'logo' ? <Spinner /> : <ImagePlus size={15} />} Upload logo<input type="file" accept="image/*" className="sr-only" onChange={(e) => upload('logo', e.target.files?.[0])} /></label>
-          {h.logo && <button onClick={() => updateHospitalProfile(h.id, { logo: undefined })} className="btn btn-ghost btn-sm">Remove</button>}
+          {h.logo && <button onClick={() => updateHospitalProfile(h.id, { logo: '' })} className="btn btn-ghost btn-sm">Remove</button>}
         </div>
       </div>
+      <PhotosEditor h={h} />
       <div>
         <p className="text-[13px] font-medium text-slate-700">Brand colour</p>
         <input type="range" min={0} max={359} value={h.hue} onChange={(e) => updateHospitalProfile(h.id, { hue: Number(e.target.value) })} className="mt-2 w-full max-w-sm accent-brand-600" aria-label="Brand colour hue" />

@@ -1,48 +1,66 @@
 # Medic Hub
 
-Healthcare access and emergency platform for Nigeria. Patients find the right hospital, see live availability, book a slot and get a QR pass. Hospitals run an operations portal that pushes status changes to patients in real time. Everyone gets a one-tap emergency mode with a direct call to the nearest emergency unit (plus 112 as backup), first-aid video guides and a triage check.
+Healthcare access and emergency platform for Nigeria. Patients find the right hospital, see live availability, call the nearest emergency unit directly, book a slot, get a QR pass and rate their visit. Hospitals set themselves up, get verified, run their live status, bookings and QR check-in, and can upgrade to Premium for analytics and automation.
 
 ## Contact
 
 Team Medic Hub · medichubnigeria@gmail.com · 07042744090
 
-## Medic AI and languages
+## Two ways to run it
 
-- Language picker (header globe, Profile › Language): English, Nigerian Pidgin, Yoruba, Hausa, Igbo. Interface strings are translated; first-aid steps stay in English until clinically reviewed. Translations need native-speaker review before launch.
-- Medic AI (`/assistant`): health Q&A in the chosen language with danger-sign detection (shows Call 112), optional Health Vault personalisation (off by default), and a Stop button. Inside the Claude artifact viewer it uses the `sample` capability; elsewhere set `VITE_AI_ENDPOINT` to a server route like `server/ask.example.ts`. With neither, it answers from the built-in first-aid guides.
+| | Launch (production) | Pitch demo |
+|---|---|---|
+| Data | Shared PostgreSQL database on a server | Stays in one browser (localStorage) |
+| Accounts | Real sign-ups, strong password hashing, 30-day sessions | Demo accounts, password `demo1234` |
+| Hospitals | None until a hospital signs up and a reviewer verifies it | Sample hospitals + real public-record listings with Wikimedia photos |
+| Build | `npm run build:prod` → `npm start` | `npm run build` (or `SINGLE=1 npm run build` for one HTML file) |
 
-## Status freshness and direct emergency calls
+## Launch checklist
 
-- **Reminder every 12 hours.** Hourly emails become noise that busy staff ignore; 24 hours is too long for emergency information. Twelve hours matches the two-shift handover most hospitals run. If a hospital's live status hasn't been touched for 12 hours, its operations contact gets a reminder; at 24 hours, an urgent one.
-- **Patients are warned.** After 12 hours cards and profiles say "Not updated · may have changed"; after 24 hours "availability at risk, call before you go". Hospitals listed from public records show "Not updated by this hospital yet".
-- **One-tap "Still correct"** on the hospital dashboard confirms nothing has changed. Any status change also counts as an update.
-- **Call the hospital directly.** Emergency mode puts the nearest open emergency unit with a direct line first (big call button, distance, freshness), with 112 kept underneath as a free backup.
-- Demo: the sweep runs in the browser and reminders arrive as in-app notifications (Lagoon Crest starts 13 hours stale so you can see it). Production: `server/reminders.example.ts` runs hourly (Vercel Cron / Supabase scheduled function) and emails via Resend; schema has `hospital_status.last_reminder_at`.
+1. **Database** – create a free PostgreSQL database (e.g. [Neon](https://neon.tech)) and copy its connection URL.
+2. **Server** – on [Render](https://render.com): New › Blueprint › this repo (uses `render.yaml` + `Dockerfile`). Fill in:
+   - `DATABASE_URL` – from step 1 (tables are created automatically on first start)
+   - `ADMIN_EMAIL`, `ADMIN_PASSWORD` – the first reviewer account (reviewers approve hospitals; there is no public sign-up for them)
+   - `APP_URL` – the public address, e.g. `https://medichub.onrender.com/`
+   - `RESEND_API_KEY`, `MAIL_FROM` – email for password resets, 12-hour status reminders and weekly reports ([Resend](https://resend.com)). Without these, password reset is disabled for safety.
+   - `ANTHROPIC_API_KEY` – optional, for Medic AI answers (otherwise it answers from the built-in first-aid guides)
+3. **Domain** – add your domain in Render (Settings › Custom domains).
+4. **First hospital** – a hospital signs up → completes the 7-step setup (details, location, services, registration, documents, administrator) → you sign in as reviewer, open their documents and verify → they appear to patients. Each hospital uploads its own photos and sets its own fees and live status.
+5. **Print the QR poster** – Hospital portal › Entrance QR poster.
 
-## Deploy to GitHub Pages
+Any Node 20+ host works the same way (`npm ci && npm run build:prod && npm start`). To serve the web app from somewhere else (e.g. GitHub Pages), build it with `VITE_BACKEND=1 VITE_API_URL=https://your-server npm run build:app` and set `ALLOWED_ORIGINS` on the server.
 
-1. Create an empty public repository on GitHub, for example `medic-hub`.
-2. Push this folder to its `main` branch (commands below).
-3. The live site is served from the `gh-pages` branch (Settings › Pages › Deploy from a branch › `gh-pages`). To rebuild: `npm run build`, then push the contents of `dist/` to `gh-pages`.
-4. Optional automatic deploys: copy `docs-deploy/deploy.yml.example` to `.github/workflows/deploy.yml` and switch Pages to GitHub Actions (pushing it needs a token with the Workflows permission).
+## Architecture
 
-```bash
-git remote add origin https://github.com/<your-username>/medic-hub.git
-git push -u origin main
+```
+src/services/*        every operation (bookings, status, reviews, plans…) with its access checks and input validation
+src/lib/rpc.ts        in the browser, sends each operation to the server; on the server, runs it as the signed-in user
+src/lib/store.ts      in-memory tables: browser cache (launch), browser-only (demo) or authoritative copy (server)
+server/index.ts       API, realtime (Server-Sent Events), file storage, scheduled jobs, serves the web app
+server/policy.ts      exactly which rows each person may receive
+server/db.ts          PostgreSQL persistence (embedded PGlite when DATABASE_URL is unset, for local runs)
+server/db/schema.sql  one table per entity, typed columns, foreign keys, indexes
 ```
 
-Medic AI on GitHub Pages answers from the built-in guides unless you deploy `server/ask.example.ts` somewhere (e.g. Vercel) and build with `VITE_AI_ENDPOINT` set.
+- **Security**: passwords use PBKDF2-SHA256 (210k iterations, per-user salt); sessions are random 256-bit tokens stored hashed; every input is validated server-side; sign-in, sign-up and reset are rate-limited; patients only ever receive their own health data and bookings; hospital staff only their own facility; verification documents are private files only the uploader and reviewers can open.
+- **Realtime**: when anything changes, open apps are told which tables changed and re-fetch only what they're allowed to see.
+- **Scheduled jobs** (every 5 minutes): status-freshness reminders (12 h / urgent at 24 h) and Premium automations (patient reminders the day before, low-bed alerts, Monday weekly report).
 
-## Run it
+## Features
 
-```bash
-npm install
-npm run dev          # http://localhost:5173
-npm run build        # production build in dist/ (deploy to Vercel/Netlify as a static site)
-SINGLE=1 npm run build   # one self-contained HTML file in dist-single/
-```
+- **Emergency mode**: one tap to call the nearest open emergency unit directly (distance, status freshness, directions), 112 as a free backup, first-aid video guides, triage check.
+- **Status freshness**: hospitals are reminded every 12 hours; patients see "not updated" after 12 h and "availability at risk – call before you go" after 24 h.
+- **QR codes**: patients' booking passes; hospitals scan them with any phone or laptop camera (or from a photo); printable entrance poster that patients scan to open the hospital's live page.
+- **Ratings**: only patients who checked in for a booked visit can rate (1–5 stars, tags, comment); hospitals reply publicly for free; "Top rated" sort.
+- **Freemium for hospitals**: Basic is free forever (listing, live status, emergency line, bookings, check-in, slots, announcements, reminders, ratings). Premium (₦25,000/month per facility, proposed; 30-day free trial) adds analytics, CSV export and automations. Paying never changes search or emergency ranking. Online billing (e.g. Paystack) is not connected yet.
+- **Medic AI** in five languages (English, Pidgin, Yoruba, Hausa, Igbo) with danger-sign detection.
 
-## Demo accounts (password `demo1234`)
+## Tests
+
+- `node qa/launch.mjs` – production flow against the real server (hospital sign-up → documents → reviewer verification → patient booking → QR check-in → rating → Premium → emergency call → realtime → restart persistence)
+- `node qa/e2e.mjs` – demo build flows and layout checks at 320–1024 px
+
+## Pitch demo: accounts (password `demo1234`)
 
 | Role | Email | What to show |
 |---|---|---|
@@ -55,29 +73,14 @@ The landing page has one-click buttons for all three. The account menu has **Res
 ### The three demo moments
 1. **Live status**: open the hospital portal in one tab and `#/hospitals/h_lagooncrest` in another. Switch Emergency from Open to Busy. The patient tab flashes the change and shows a live toast.
 2. **Instant booking pass**: book any slot. A confirmation animates in and the QR pass rises into view.
-3. **Emergency mode**: tap Emergency (or SOS on mobile). A red wash expands from your tap into a stripped-back screen with Call 112 first.
-
-## Architecture
-
-```
-src/
-  components/  ui, navigation, hospitals, bookings, emergency, hospital-admin
-  pages/       public, patient, hospital, admin
-  layouts/     App (patient), Hospital (ops portal), Admin, Emergency, Auth
-  services/    auth, hospitals, bookings, health, notifications  ← all data access + access policies
-  lib/store.ts relational data engine (localStorage + cross-tab realtime)
-  data/        seed (17 fictional hospitals), first-aid content, wellness content
-  supabase/schema.sql  Postgres schema + Row Level Security + atomic booking function
-```
-
-**Data layer.** No backend credentials were available during the build, so the app ships with an in-browser relational store (`src/lib/store.ts`) that mirrors `supabase/schema.sql` table-for-table. It persists to localStorage and broadcasts every write to other tabs via `BroadcastChannel`, which gives the same realtime behaviour Supabase Realtime provides. Every read and write goes through `src/services/*`, which enforce the same rules as the RLS policies: patients only see their own health data and bookings; hospital staff can only act on their own facility; only reviewers can change verification; unverified hospitals are not public.
-
-**Moving to Supabase.** Run `supabase/schema.sql`, then re-implement the functions in `src/services/*` with `supabase-js` (signatures stay the same). Bookings should call the `book_slot()` RPC so capacity is enforced atomically. Replace `db.subscribe` in `useLive` with `supabase.channel(...).on('postgres_changes', ...)`. Client-side checks are a UX layer; RLS is the real security boundary.
+3. **Emergency mode**: tap Emergency (or SOS on mobile). The nearest open emergency unit's direct line comes first, with 112 as backup.
+4. **Fresh or stale**: Lagoon Crest starts 13 hours out of date: patients see the warning, the hospital gets the reminder and taps "Still correct".
+5. **Premium**: Hospital › Plan › Start free trial unlocks Analytics and Automations.
 
 ## Honest notes
-- Hospitals are fictional demo facilities. Nothing claims a real hospital is verified.
+- Demo build: Lagoon Crest and the review-queue hospitals are fictional. Real hospitals are listed from public records with photos from Wikimedia Commons (credited, linked to author and licence); their status is demo data and labelled "not updated by this hospital". Nothing claims a real hospital is verified, and real hospitals have no invented reviews. The launch build has none of this: hospitals add themselves.
 - First-aid videos are real British Red Cross and St John Ambulance videos, linked or embedded from their source (YouTube privacy-enhanced mode). They are UK-produced; the app reminds users that the number in Nigeria is 112. Durations aren't shown because we didn't measure them.
 - Medic Hub does not dispatch ambulances. Emergency calls are `tel:` links to the hospital's own emergency line or 112; on desktop it tells you to dial from a phone.
 - The map is a dependency-free schematic using real coordinates, with “Directions” opening Google Maps. Swap in Mapbox/Leaflet tiles if you have a key.
-- Password reset shows the reset link on screen (“demo inbox”) because email isn't connected.
+- Demo build only: password reset shows the link on screen ("demo inbox"). The server never does; it emails the link.
 - Nutrition values are approximate per typical serving.

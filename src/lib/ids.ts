@@ -21,7 +21,34 @@ export function secureToken(): string {
   return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')
 }
 
-/** SHA-256 password hashing with a per-app pepper. Production uses Supabase Auth (bcrypt). */
+const hex = (b: ArrayBuffer | Uint8Array) => Array.from(b instanceof Uint8Array ? b : new Uint8Array(b), (x) => x.toString(16).padStart(2, '0')).join('')
+const PBKDF2_ITER = 210_000
+
+/** PBKDF2-SHA256 with a random salt (OWASP-recommended iteration count). Format: pbkdf2$iter$salt$hash */
+export async function hashPasswordStrong(password: string): Promise<string> {
+  const salt = randomBytes(16)
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits'])
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: salt as BufferSource, iterations: PBKDF2_ITER }, key, 256)
+  return `pbkdf2$${PBKDF2_ITER}$${hex(salt)}$${hex(bits)}`
+}
+
+export async function verifyPassword(stored: string, password: string, email: string): Promise<boolean> {
+  if (!stored || stored === 'locked') return false
+  if (stored.startsWith('plain:')) return stored.slice(6) === password
+  if (stored.startsWith('pbkdf2$')) {
+    const [, iter, saltHex, want] = stored.split('$')
+    const salt = new Uint8Array((saltHex.match(/.{2}/g) ?? []).map((h) => parseInt(h, 16)))
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits'])
+    const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: Number(iter) }, key, 256)
+    const got = hex(bits)
+    let diff = got.length ^ want.length
+    for (let i = 0; i < Math.min(got.length, want.length); i++) diff |= got.charCodeAt(i) ^ want.charCodeAt(i)
+    return diff === 0
+  }
+  return stored === (await hashPassword(password, email))
+}
+
+/** Legacy SHA-256 hash, kept only to verify passwords created by older demo builds. */
 export async function hashPassword(password: string, email: string): Promise<string> {
   const data = new TextEncoder().encode(`medichub:${email.toLowerCase()}:${password}`)
   try {

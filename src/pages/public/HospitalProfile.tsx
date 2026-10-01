@@ -1,3 +1,4 @@
+import { ReviewsSection } from '../../components/hospitals/Reviews'
 import { FreshnessNote } from '../../components/hospitals/FreshnessNote'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
@@ -46,7 +47,7 @@ export default function HospitalProfile() {
   const { id = '' } = useParams()
   const [params, setParams] = useSearchParams()
   const ready = useFirstLoad(350)
-  const { data: h, remoteTick } = useLive(() => getHospitalView(id), ['hospitals', 'hospital_status', 'hospital_capacity', 'hospital_services', 'hospital_departments', 'hospital_doctors', 'hospital_announcements', 'hospital_slots'], [id])
+  const { data: h, remoteTick } = useLive(() => getHospitalView(id), ['hospitals', 'hospital_status', 'hospital_capacity', 'hospital_services', 'hospital_departments', 'hospital_doctors', 'hospital_announcements', 'hospital_slots', 'hospital_reviews'], [id])
   useDocumentTitle(h?.name ?? 'Hospital')
   const { location } = useUserLocation()
   const { hospitalId } = useAuth()
@@ -99,12 +100,12 @@ export default function HospitalProfile() {
       <Link to="/find" className="inline-flex items-center gap-1.5 rounded-lg py-1 text-[14px] font-medium text-slate-600 hover:text-ink"><ArrowLeft size={16} /> All hospitals</Link>
 
       <section className="card mt-3 overflow-hidden">
-        <HospitalCover hue={h.hue} seed={h.id} cover={h.cover} className="h-48 sm:h-72" />
+        <HospitalCover hue={h.hue} seed={h.id} cover={h.cover ?? h.photos?.[0]?.src} className="h-48 sm:h-72" />
         <div className="px-5 pb-5 sm:px-7">
           <div className="relative -mt-10 flex flex-col gap-4 sm:-mt-12">
             <HospitalAvatar name={h.name} hue={h.hue} logo={h.logo} size={88} className="rounded-2xl ring-4 ring-white" />
             <div className="min-w-0 flex-1">
-              <h1 className="text-[26px] font-semibold leading-tight sm:text-[32px]">{h.name}{' '}{h.verification === 'verified' ? <VerifiedBadge size={22} className="-mt-1 inline align-middle" /> : h.publicRecord ? <span className="inline-block rounded-md bg-sky-50 px-2 py-0.5 align-middle text-[12px] font-bold uppercase tracking-wide text-sky-700 ring-1 ring-sky-100">Federal hospital</span> : <span className="inline-block align-middle"><VerificationPill v={h.verification} size="sm" /></span>}</h1>
+              <h1 className="text-[26px] font-semibold leading-tight sm:text-[32px]">{h.name}{' '}{h.verification === 'verified' ? <VerifiedBadge size={22} className="-mt-1 inline align-middle" /> : h.publicRecord ? <span className="inline-block rounded-md bg-sky-50 px-2 py-0.5 align-middle text-[12px] font-bold uppercase tracking-wide text-sky-700 ring-1 ring-sky-100">{h.ownership === 'Private' ? 'Private hospital' : h.ownership === 'State' ? 'State hospital' : 'Federal hospital'}</span> : <span className="inline-block align-middle"><VerificationPill v={h.verification} size="sm" /></span>}</h1>
               <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px] text-slate-600">
                 <span>{h.type} hospital</span><span className="flex items-center gap-1"><MapPin size={14} />{h.area}, {h.city}</span>{dist !== null && <span className="font-semibold text-ink">{fmtKm(dist)} away</span>}
                 <span className={cn('font-semibold', h.openNow ? 'text-brand-700' : 'text-danger-600')}>{h.openNow ? (h.is24h ? 'Open 24 hours' : 'Open now') : 'Closed now'}</span>
@@ -124,7 +125,7 @@ export default function HospitalProfile() {
       {h.publicRecord && (
         <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100 sm:flex-row sm:items-center">
           <Info size={19} className="shrink-0 text-sky-700" />
-          <p className="flex-1 text-[13.5px] leading-relaxed text-sky-900"><strong>Listed from public records.</strong> This federal hospital hasn't joined Medic Hub yet. Live status, capacity and slots on this page are demo data and are not reported by the hospital. Bookings here are demo bookings.</p>
+          <p className="flex-1 text-[13.5px] leading-relaxed text-sky-900"><strong>Listed from public records.</strong> This hospital hasn't joined Medic Hub yet. Live status, capacity and slots on this page are demo data and are not reported by the hospital. Bookings here are demo bookings.</p>
           <Link to="/signup?role=hospital" className="btn btn-sm shrink-0 bg-white text-ink ring-1 ring-sky-100">Work here? Claim this listing</Link>
         </div>
       )}
@@ -159,7 +160,8 @@ export default function HospitalProfile() {
             <p className="mt-2 text-[12px] text-slate-500">{h.publicRecord ? 'Demo status for illustration. This hospital does not report to Medic Hub yet.' : 'Status is reported by the hospital and can change quickly.'} Call ahead if you're travelling far. In an emergency, call the hospital's emergency line or 112.</p>
           </section>
 
-          <PhotoGallery hue={h.hue} seed={h.id} cover={h.cover} name={h.name} note={h.publicRecord ? 'Illustrative photos, not of this hospital.' : undefined} />
+          <PhotoGallery hue={h.hue} seed={h.id} cover={h.cover} photos={h.photos} name={h.name} note={h.publicRecord ? 'Illustrative photos, not of this hospital.' : undefined} />
+          <ReviewsSection hospitalId={h.id} publicRecord={h.publicRecord} />
 
           <section aria-labelledby="svc-h">
             <h2 id="svc-h" className="text-[20px] font-semibold">Services</h2>

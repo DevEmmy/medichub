@@ -1,3 +1,4 @@
+import { rpc } from '../lib/rpc'
 import { db } from '../lib/store'
 import { uid } from '../lib/ids'
 import type { NotificationType } from '../types'
@@ -21,7 +22,7 @@ export function myNotifications() {
   return db.select('notifications').filter((n) => n.userId === u.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 }
 
-export function markRead(id?: string) {
+export const markRead = rpc('notifications.markRead', async function markRead(id?: string) {
   const u = requireUser()
   db.write(['notifications'], (d) => d.notifications.forEach((n) => { if (n.userId === u.id && (!id || n.id === id)) n.read = true }))
-}
+})

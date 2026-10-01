@@ -45,6 +45,8 @@ export interface Hospital {
   hue: number
   logo?: string
   cover?: string
+  /** Hospital-uploaded gallery (exterior, reception, wards…) */
+  photos?: { src: string; label: string }[]
   is24h: boolean
   hours: DayHours[]
   facilities: string[]
@@ -56,10 +58,32 @@ export interface Hospital {
   autoConfirm: boolean
   /** Listed from public records of federal health institutions; not onboarded, status is demo data */
   publicRecord?: boolean
+  /** Who runs it (shown as a badge for listings from public records) */
+  ownership?: 'Federal' | 'State' | 'Private'
+  /** Freemium: every hospital gets Basic; Premium unlocks analytics + automations */
+  plan?: 'basic' | 'premium'
+  planTrialEndsAt?: string
+  automations?: Automations
   ownerUserId: string
   submittedAt?: string
   createdAt: string
   updatedAt: string
+}
+
+export interface Automations { patientReminders: boolean; lowBedAlert: boolean; weeklyReport: boolean }
+
+export interface Review {
+  id: string
+  hospitalId: string
+  patientId: string
+  /** First name + initial, never the full name */
+  authorName: string
+  bookingId: string
+  rating: number
+  tags: string[]
+  comment: string
+  createdAt: string
+  reply?: { body: string; at: string }
 }
 
 export interface HospitalStaff { id: string; hospitalId: string; userId: string; role: 'owner' | 'staff' }
@@ -128,6 +152,8 @@ export interface Booking {
   status: BookingStatus
   createdAt: string
   updatedAt: string
+  /** Automation: day-before reminder already sent */
+  remindedAt?: string
 }
 export interface BookingEvent { id: string; bookingId: string; status: BookingStatus; at: string; by: 'patient' | 'hospital' | 'system'; note?: string }
 
@@ -154,7 +180,7 @@ export interface Notification { id: string; userId: string; type: NotificationTy
 export type AnnouncementSeverity = 'info' | 'warning' | 'critical'
 export interface Announcement { id: string; hospitalId: string; title: string; body: string; severity: AnnouncementSeverity; active: boolean; createdAt: string }
 
-export interface HospitalDocument { id: string; hospitalId: string; name: string; kind: string; size: number; uploadedAt: string; status: 'submitted' | 'accepted' | 'needs_attention' }
+export interface HospitalDocument { id: string; hospitalId: string; name: string; kind: string; size: number; fileId?: string; uploadedAt: string; status: 'submitted' | 'accepted' | 'needs_attention' }
 
 export interface PasswordReset { token: string; userId: string; expiresAt: string; used: boolean }
 

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { fileUrl } from '../../lib/files'
 import { AnimatePresence, motion } from 'framer-motion'
 import { BadgeCheck, FileText, Search, ShieldCheck, TriangleAlert, XCircle, Building2, ExternalLink } from 'lucide-react'
 import { useLive } from '../../hooks/useLive'
@@ -77,7 +78,7 @@ export default function Review() {
                   </div>
                   <div>
                     <h3 className="text-[13px] font-semibold text-slate-700">Documents</h3>
-                    <ul className="mt-2 space-y-2">{h.documents.map((d) => <li key={d.id} className="flex items-center gap-2.5 rounded-xl bg-canvas px-3 py-2.5"><FileText size={16} className="text-slate-400" /><span className="min-w-0 flex-1 truncate text-[13.5px] text-ink">{d.name}</span><span className="text-[11.5px] text-slate-500">{fmtBytes(d.size)}</span></li>)}
+                    <ul className="mt-2 space-y-2">{h.documents.map((d) => <li key={d.id} className="flex items-center gap-2.5 rounded-xl bg-canvas px-3 py-2.5"><FileText size={16} className="text-slate-400" /><span className="min-w-0 flex-1 truncate text-[13.5px] text-ink">{d.name}</span><span className="text-[11.5px] text-slate-500">{fmtBytes(d.size)}</span>{d.fileId && <a href={fileUrl(d.fileId)} target="_blank" rel="noopener noreferrer" className="text-[12.5px] font-semibold text-brand-700 underline">Open</a>}</li>)}
                       {h.documents.length === 0 && <li className="text-[13px] text-slate-500">No documents uploaded.</li>}</ul>
                     <h3 className="mt-5 text-[13px] font-semibold text-slate-700">Services</h3>
                     <p className="mt-1 text-[13.5px] text-slate-600">{h.specialties.join(', ')}</p>

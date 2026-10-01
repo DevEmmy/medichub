@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { DEMO } from '../../config'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Eye, EyeOff, UserRound, Building2, ShieldCheck } from 'lucide-react'
 import { AuthShell } from '../../layouts/AuthShell'
@@ -46,7 +47,7 @@ export default function Login() {
         {error && <p role="alert" className="rounded-xl bg-danger-50 px-3.5 py-2.5 text-[13.5px] font-medium text-danger-700">{error}</p>}
         <button className="btn btn-primary w-full" disabled={loading}>{loading && <Spinner />} Sign in</button>
       </form>
-      <div className="mt-8">
+      {DEMO && <div className="mt-8">
         <p className="eyebrow text-center">Or use a demo account</p>
         <div className="mt-3 grid grid-cols-3 gap-2">
           {([['patient', UserRound], ['hospital', Building2], ['admin', ShieldCheck]] as const).map(([k, I]) => (
@@ -56,7 +57,7 @@ export default function Login() {
             </button>
           ))}
         </div>
-      </div>
+      </div>}
     </AuthShell>
   )
 }

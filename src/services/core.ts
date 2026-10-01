@@ -1,4 +1,6 @@
 import { db } from '../lib/store'
+import { rpcHooks, setToken, api, syncTables } from '../lib/rpc'
+import { BACKEND, IS_BROWSER } from '../config'
 import type { PublicUser, Role, Session, User } from '../types'
 
 export class AppError extends Error {
@@ -21,17 +23,46 @@ function write(storage: 'session' | 'local', key: string, v: string | null) {
 }
 
 /** Sessions are per tab (so a judge can be a patient in one tab and hospital staff in another) and restored from the last login in new tabs. */
-export function getSession(): Session | null {
+function browserGet(): Session | null {
   if (memSession) return memSession
   const raw = read('session', SESSION_KEY) ?? read('local', LAST_KEY)
   if (!raw) return null
   try { memSession = JSON.parse(raw); return memSession } catch { return null }
 }
-export function setSession(s: Session | null) {
+function browserSet(s: Session | null) {
   memSession = s
   const v = s ? JSON.stringify(s) : null
   write('session', SESSION_KEY, v)
   write('local', LAST_KEY, v)
+}
+
+/** Outgoing email. Off in the browser; the server switches it on when an email provider is configured. */
+export const mailer = {
+  enabled: false,
+  appUrl: '',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  send: async (_m: { to: string; subject: string; text: string }): Promise<void> => {},
+}
+
+/** The server swaps these for per-request sessions (see server/index.ts). */
+export const sessionRuntime = { get: browserGet, set: browserSet }
+export function getSession(): Session | null { return sessionRuntime.get() }
+export function setSession(s: Session | null) { sessionRuntime.set(s) }
+
+rpcHooks.onSession = (s) => {
+  if (!s) { setToken(null); browserSet(null) } else { setToken(s.token); browserSet({ userId: s.userId, createdAt: s.createdAt }) }
+}
+/** Sign out everywhere this token is used. */
+export function endSession() {
+  if (IS_BROWSER && BACKEND) {
+    const done = api('/logout', {}).catch(() => {})
+    setToken(null)
+    setSession(null)
+    db.hydrate({ users: [], patient_profiles: [], bookings: [], booking_events: [], health_profiles: [], health_events: [], emergency_contacts: [], notifications: [], hospital_documents: [], hospital_staff: [] })
+    done.finally(() => syncTables().catch(() => {}))
+    return
+  }
+  setSession(null)
 }
 
 export function toPublic(u: User): PublicUser {
@@ -46,7 +77,7 @@ export function currentUser(): User | null {
   return db.select('users').find((u) => u.id === s.userId) ?? null
 }
 
-// ---------- Access policies (mirror of the RLS policies in supabase/schema.sql) ----------
+// ---------- Access policies (enforced on the server for every operation; reads are filtered in server/policy.ts) ----------
 export function requireUser(): User {
   const u = currentUser()
   if (!u) throw new AppError('auth', 'Please sign in to continue.')
@@ -70,8 +101,41 @@ export function myHospitalId(): string | null {
   return db.select('hospital_staff').find((s) => s.userId === u.id)?.hospitalId ?? null
 }
 
+// ---------- Input validation (every API input is untrusted) ----------
+export function oneOf<T extends string>(v: unknown, allowed: readonly T[], label: string): T {
+  if (typeof v !== 'string' || !allowed.includes(v as T)) throw new AppError('validation', `Invalid ${label}.`)
+  return v as T
+}
+export function num(v: unknown, min: number, max: number, label: string): number {
+  const n = typeof v === 'number' ? v : Number(v)
+  if (!Number.isFinite(n) || n < min || n > max) throw new AppError('validation', `Invalid ${label}.`)
+  return n
+}
+export function text(v: unknown, max: number, label: string, required = false): string {
+  if (v === undefined || v === null) { if (required) throw new AppError('validation', `Enter ${label}.`); return '' }
+  if (typeof v !== 'string') throw new AppError('validation', `Invalid ${label}.`)
+  if (required && !v.trim()) throw new AppError('validation', `Enter ${label}.`)
+  if (v.length > max) throw new AppError('validation', `${label[0].toUpperCase() + label.slice(1)} is too long.`)
+  return v
+}
+const EM = ['open', 'busy', 'closed'] as const
+const AV = ['available', 'limited', 'unavailable'] as const
+export const ENUMS = {
+  emergency: EM, availability: AV,
+  overall: ['available', 'moderate', 'high', 'full'] as const,
+  ecap: ['available', 'limited', 'full'] as const,
+  resource: ['oxygen', 'pharmacy', 'laboratory', 'ambulance', 'maternity', 'theatre', 'bloodBank'] as const,
+  bookingStatus: ['pending', 'confirmed', 'checked_in', 'in_consultation', 'completed', 'cancelled', 'no_show'] as const,
+  verification: ['draft', 'pending', 'under_review', 'verified', 'needs_attention', 'rejected'] as const,
+  severity: ['info', 'warning', 'critical'] as const,
+  automation: ['patientReminders', 'lowBedAlert', 'weeklyReport'] as const,
+  signupRole: ['patient', 'hospital'] as const,
+  eventType: ['appointment', 'visit', 'vaccination', 'lab', 'medication', 'profile'] as const,
+}
+
 // ---------- Network simulation ----------
 export async function latency(ms = 220) {
+  if (!IS_BROWSER || BACKEND) return
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     throw new AppError('network', 'You appear to be offline. Check your connection and try again.')
   }
