@@ -12,7 +12,7 @@
 import type {
   User, PatientProfile, Hospital, HospitalStaff, Department, Service, Doctor, HospitalStatus, HospitalCapacity,
   Slot, Booking, BookingEvent, HealthProfile, HealthEvent, EmergencyContact, Notification, Announcement,
-  HospitalDocument, PasswordReset, Review,
+  HospitalDocument, PasswordReset, Review, Payment, HospitalPayout,
 } from '../types'
 
 export interface Tables {
@@ -36,6 +36,8 @@ export interface Tables {
   hospital_documents: HospitalDocument[]
   password_resets: PasswordReset[]
   hospital_reviews: Review[]
+  payments: Payment[]
+  hospital_payouts: HospitalPayout[]
 }
 export type TableName = keyof Tables
 
@@ -45,18 +47,18 @@ export const TABLE_KEYS: Record<TableName, string> = {
   hospital_services: 'id', hospital_doctors: 'id', hospital_status: 'hospitalId', hospital_capacity: 'hospitalId',
   hospital_slots: 'id', bookings: 'id', booking_events: 'id', health_profiles: 'userId', health_events: 'id',
   emergency_contacts: 'id', notifications: 'id', hospital_announcements: 'id', hospital_documents: 'id',
-  password_resets: 'token', hospital_reviews: 'id',
+  password_resets: 'token', hospital_reviews: 'id', payments: 'id', hospital_payouts: 'hospitalId',
 }
 /** Parent tables first, so inserts respect foreign keys (deletes run in reverse). */
 export const TABLE_ORDER: TableName[] = [
   'users', 'patient_profiles', 'hospitals', 'hospital_staff', 'hospital_departments', 'hospital_services', 'hospital_doctors',
   'hospital_status', 'hospital_capacity', 'hospital_slots', 'bookings', 'booking_events', 'health_profiles', 'health_events',
-  'emergency_contacts', 'notifications', 'hospital_announcements', 'hospital_documents', 'password_resets', 'hospital_reviews',
+  'emergency_contacts', 'notifications', 'hospital_announcements', 'hospital_documents', 'password_resets', 'hospital_reviews', 'payments', 'hospital_payouts',
 ]
 export const emptyTables = (): Tables => Object.fromEntries(TABLE_ORDER.map((t) => [t, []])) as unknown as Tables
 
-const KEY = 'medichub.db.v7'
-const SCHEMA_VERSION = 7
+const KEY = 'medichub.db.v8'
+const SCHEMA_VERSION = 8
 
 type Listener = (tables: TableName[], remote: boolean) => void
 

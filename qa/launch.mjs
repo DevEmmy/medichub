@@ -73,6 +73,25 @@ await step('hospital sees verified + sets live status (realtime)', async () => {
   await h.goto(BASE + '#/hospital/status'); await h.waitForTimeout(800); await shot(h, 'status')
 })
 
+await step('hospital adds bank account (name verified) and sets fees', async () => {
+  await h.goto(BASE + '#/hospital/payments'); await h.getByTestId('payout-form').waitFor({ timeout: 10000 })
+  await h.getByLabel('Bank').selectOption('058'); await h.getByLabel('Account number').fill('0000000000')
+  await h.getByRole('button', { name: 'Verify account' }).click(); await h.getByText(/could not find that account/i).waitFor({ timeout: 8000 })
+  await h.getByLabel('Account number').fill('0123456789')
+  await h.getByRole('button', { name: 'Verify account' }).click(); await h.getByTestId('resolved-name').waitFor({ timeout: 8000 })
+  await h.getByRole('button', { name: /Save and start receiving payments/ }).click()
+  await h.getByText('Online payments are ON').waitFor({ timeout: 10000 }); await shot(h, 'payouts')
+  await h.evaluate(async () => {
+    const H = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('medichub.token') }
+    const s = await (await fetch('/api/sync', { headers: H })).json()
+    const hid = s.data.hospital_staff[0].hospitalId
+    for (const sv of s.data.hospital_services.filter((x) => x.hospitalId === hid && x.bookable)) {
+      const r = await fetch('/api/rpc/hospitals.saveService', { method: 'POST', headers: H, body: JSON.stringify({ args: [hid, { ...sv, fee: 5000 }] }) })
+      if (!r.ok) throw new Error('fee ' + r.status)
+    }
+  })
+})
+
 await step('patient signs up and finds the hospital', async () => {
   await p.goto(BASE + '#/signup'); await p.getByRole('radio', { name: /Patient/ }).click()
   await p.getByLabel('Full name').fill('Adaeze Nwosu'); await p.getByLabel('Email').fill(P.email); await p.getByLabel('Password', { exact: true }).fill(P.pw)
@@ -90,8 +109,13 @@ await step('patient books a slot and gets a QR pass', async () => {
   const day = p.locator('[role=dialog] button:not([disabled])').filter({ hasText: /left/ }).first(); await day.click()
   await p.locator('[role=dialog] button[aria-pressed]:not([disabled])').first().click()
   await p.getByRole('button', { name: 'Continue' }).click()
-  await p.getByRole('button', { name: /Confirm/ }).click()
-  await p.getByText(/MED-[A-Z0-9]{6}/).first().waitFor({ timeout: 15000 })
+  await p.getByTestId('pay-and-book').click()
+  await p.waitForURL(/localhost:8899\/checkout\//, { timeout: 15000 }); await shot(p, 'paystack')
+  await p.click('#pay')
+  await p.locator('[data-testid=payment-verify][data-status=paid]').waitFor({ timeout: 20000 }); await shot(p, 'paid')
+  await p.getByRole('link', { name: 'View my booking pass' }).click()
+  await p.getByText('Booking reference').first().waitFor({ timeout: 15000 })
+  await p.getByText(/Paid ₦5,000/).first().waitFor({ timeout: 8000 })
   ref = (await p.textContent('body')).match(/MED-[A-Z0-9]{6}/)[0]
   await p.waitForTimeout(1500); await shot(p, 'pass')
   const qr = p.locator('[role=img][aria-label^="QR code"]').last().locator('..')
@@ -110,10 +134,11 @@ await step('hospital sees booking in realtime and checks in by scanning QR photo
 })
 
 await step('patient rates the visit', async () => {
-  await p.reload(); await p.waitForTimeout(1500)
+  await p.goto(BASE + '#/find'); await p.locator('a[href*="/hospitals/"]', { hasText: 'Harbour Point' }).first().waitFor({ timeout: 10000 })
   const hid = await p.evaluate(() => location.hash)
   const href = await p.evaluate(() => [...document.querySelectorAll('a[href*="/hospitals/"]')].find((x) => x.textContent.includes('Harbour Point'))?.getAttribute('href'))
-  await p.goto(BASE + (href ?? hid)); await p.getByTestId('rate-form').waitFor({ timeout: 10000 })
+  await p.goto(BASE + (href ?? hid));
+  await p.getByTestId('rate-form').waitFor({ timeout: 10000 })
   await p.getByRole('radio', { name: '5 stars' }).click(); await p.getByRole('button', { name: 'Kind staff' }).click()
   await p.getByPlaceholder(/Anything other patients/).fill('Seen quickly, very kind nurses.')
   await p.getByRole('button', { name: 'Post rating' }).click(); await p.getByText('Seen quickly, very kind nurses.').waitFor({ timeout: 8000 }); await shot(p, 'rated')
@@ -147,9 +172,47 @@ await step('live status change reaches patient without reload', async () => {
   void hid
 })
 
+await step('anyone scanning the pass sees it is genuine (public view)', async () => {
+  const c = await b.newContext({ viewport: { width: 390, height: 844 } }); const x = await c.newPage()
+  await x.goto(BASE + '#/scan'); await x.getByTestId('qr-photo-input').setInputFiles('/tmp/pass-qr.png')
+  await x.getByTestId('pass-check').waitFor({ timeout: 10000 })
+  const t = await x.textContent('body')
+  if (!t.includes('Genuine Medic Hub pass') || !t.includes(ref)) throw new Error('pass check failed')
+  if (t.includes('Adaeze Nwosu')) throw new Error('public view leaked full name')
+  await c.close()
+})
+
+await step('cancelling a paid booking refunds it; fake webhooks are rejected', async () => {
+  const out = await p.evaluate(async () => {
+    const H = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('medichub.token') }
+    const rpc = async (n, args) => { const r = await fetch('/api/rpc/' + n, { method: 'POST', headers: H, body: JSON.stringify({ args }) }); const j = await r.json(); if (!r.ok) throw new Error(n + ': ' + j.error?.message); return j.result }
+    const s = await (await fetch('/api/sync', { headers: H })).json()
+    const hosp = s.data.hospitals.find((h) => h.name.includes('Harbour Point'))
+    const today = new Date().toISOString().slice(0, 10)
+    const slot = s.data.hospital_slots.filter((x) => x.hospitalId === hosp.id && x.date > today && x.booked < x.capacity).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))[3]
+    const bk = await rpc('bookings.createBooking', [{ hospitalId: hosp.id, serviceId: slot.serviceId, slotId: slot.id }])
+    const { authorizationUrl, reference } = await rpc('payments.startPayment', [bk.id])
+    await fetch(authorizationUrl + '/pay', { redirect: 'manual' }).catch(() => {})
+    const conf = await rpc('payments.confirmPayment', [reference])
+    await rpc('bookings.cancelMyBooking', [bk.id])
+    const s2 = await (await fetch('/api/sync?tables=payments,bookings', { headers: H })).json()
+    return { status0: bk.status, conf: conf.status, pay: s2.data.payments.find((x) => x.reference === reference)?.status, bkPay: s2.data.bookings.find((x) => x.id === bk.id)?.paymentStatus, reference }
+  })
+  if (out.status0 !== 'awaiting_payment' || out.conf !== 'paid' || out.pay !== 'refunded' || out.bkPay !== 'refunded') throw new Error(JSON.stringify(out))
+  const st = await (await fetch('http://localhost:8899/_state')).json()
+  if (!st.refunds.includes(out.reference)) throw new Error('refund not sent to Paystack')
+  const bad = await fetch(BASE + 'api/paystack/webhook', { method: 'POST', headers: { 'x-paystack-signature': 'forged' }, body: JSON.stringify({ event: 'charge.success', data: { reference: out.reference } }) })
+  if (bad.status !== 401) throw new Error('forged webhook accepted: ' + bad.status)
+  const { createHmac } = await import('node:crypto')
+  const body = JSON.stringify({ event: 'charge.success', data: { reference: out.reference } })
+  const good = await fetch(BASE + 'api/paystack/webhook', { method: 'POST', headers: { 'x-paystack-signature': createHmac('sha512', 'sk_test_mock').update(body).digest('hex') }, body })
+  if (good.status !== 200) throw new Error('signed webhook rejected: ' + good.status)
+})
+
 if (process.env.RESTART_CMD) {
   await step('data survives a server restart', async () => {
     const { execSync } = await import('node:child_process'); execSync(process.env.RESTART_CMD)
+    for (let i = 0; i < 20; i++) { try { await fetch(BASE + 'api/health'); break } catch { await new Promise((r) => setTimeout(r, 500)) } }
     const r = await (await fetch(BASE + 'api/health')).json()
     if (r.hospitals < 1 || r.users < 3) throw new Error(JSON.stringify(r))
     await p.goto(BASE + '#/app/bookings'); await p.waitForTimeout(1500)

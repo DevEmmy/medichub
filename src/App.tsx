@@ -3,6 +3,7 @@ import { HashRouter, Route, Routes, Navigate } from 'react-router-dom'
 import { MotionConfig } from 'framer-motion'
 import { AuthProvider } from './contexts/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
+import { CallSheetHost } from './components/emergency/CallSheet'
 import { LocationProvider } from './contexts/LocationContext'
 import { EmergencyProvider } from './contexts/EmergencyContext'
 import { LanguageProvider } from './i18n/LanguageContext'
@@ -50,6 +51,10 @@ const Analytics = lazy(() => import('./pages/hospital/Analytics'))
 const Automations = lazy(() => import('./pages/hospital/Automations'))
 const QrPoster = lazy(() => import('./pages/hospital/QrPoster'))
 const Scan = lazy(() => import('./pages/public/Scan'))
+const PassCheck = lazy(() => import('./pages/public/PassCheck'))
+const PaymentVerify = lazy(() => import('./pages/payments/PaymentVerify'))
+const TestCheckout = lazy(() => import('./pages/payments/TestCheckout'))
+const HospitalPayments = lazy(() => import('./pages/hospital/Payments'))
 
 const AdminReview = lazy(() => import('./pages/admin/Review'))
 
@@ -67,6 +72,7 @@ export default function App() {
           <AuthProvider>
             <LocationProvider>
               <EmergencyProvider>
+                <CallSheetHost />
                 <Suspense fallback={<Loading />}>
                   <Routes>
                     <Route path="/" element={<Landing />} />
@@ -87,6 +93,9 @@ export default function App() {
                       <Route path="/wellness" element={<Wellness />} />
                       <Route path="/assistant" element={<Assistant />} />
                       <Route path="/scan" element={<Scan />} />
+                      <Route path="/pass/:ref" element={<PassCheck />} />
+                      <Route path="/payment/verify" element={<PaymentVerify />} />
+                      <Route path="/pay/test/:reference" element={<TestCheckout />} />
                       <Route path="/app" element={<RequireRole roles={['patient']}><PatientHome /></RequireRole>} />
                       <Route path="/app/bookings" element={<RequireRole roles={['patient']}><MyBookings /></RequireRole>} />
                       <Route path="/app/bookings/:id" element={<RequireRole roles={['patient']}><BookingPassPage /></RequireRole>} />
@@ -106,6 +115,7 @@ export default function App() {
                       <Route path="/hospital/verification" element={<Verification />} />
                       <Route path="/hospital/reviews" element={<HospitalReviews />} />
                       <Route path="/hospital/plan" element={<Plan />} />
+                      <Route path="/hospital/payments" element={<HospitalPayments />} />
                       <Route path="/hospital/analytics" element={<Analytics />} />
                       <Route path="/hospital/automations" element={<Automations />} />
                       <Route path="/hospital/qr" element={<QrPoster />} />

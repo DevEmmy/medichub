@@ -12,6 +12,9 @@ import { useLive } from '../../hooks/useLive'
 import { db } from '../../lib/store'
 import type { HospitalView } from '../../services/hospitals'
 import { createBooking, type BookingView } from '../../services/bookings'
+import { requiresPayment, startPayment, HOLD_MINUTES } from '../../services/payments'
+import { useNavigate } from 'react-router-dom'
+import { Lock, ShieldCheck } from 'lucide-react'
 import { addDays, fmtDate, fmtDateLong, fmtTime, nowHHMM, today, parseDate } from '../../utils/date'
 import { cn } from '../../utils/cn'
 
@@ -33,6 +36,7 @@ export function BookingFlow({ h, open, onClose, initialService }: { h: HospitalV
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<BookingView | null>(null)
   const [dir, setDir] = useState(1)
+  const nav = useNavigate()
 
   useEffect(() => {
     if (open) {
@@ -59,6 +63,12 @@ export function BookingFlow({ h, open, onClose, initialService }: { h: HospitalV
     setLoading(true); setError(null)
     try {
       const b = await createBooking({ hospitalId: h.id, serviceId, slotId, reason, phone })
+      if (b.status === 'awaiting_payment') {
+        // Hand over to the secure checkout. The booking is held while the patient pays.
+        const { authorizationUrl } = await startPayment(b.id)
+        if (authorizationUrl.startsWith('#')) { onClose(); nav(authorizationUrl.slice(1)) } else window.location.assign(authorizationUrl)
+        return
+      }
       setResult(b); setDir(1); setStep('done')
       toast('success', b.status === 'confirmed' ? 'Booking confirmed' : 'Booking requested', `${b.ref} · ${fmtDate(b.date)} at ${fmtTime(b.time)}`)
     } catch (e) { setError((e as Error).message); if ((e as { code?: string }).code === 'full') go('time') } finally { setLoading(false) }
@@ -170,8 +180,18 @@ export function BookingFlow({ h, open, onClose, initialService }: { h: HospitalV
                   <TextArea label="Reason for visit (optional)" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={240} placeholder="A short note helps the team prepare." hint="Shared only with this hospital." />
                 </div>
                 {error && <p role="alert" className="mt-3 rounded-xl bg-danger-50 px-3.5 py-2.5 text-[13.5px] font-medium text-danger-700">{error}</p>}
-                <button onClick={confirm} disabled={loading} className="btn btn-brand mt-5 h-14 w-full text-[16px]">{loading ? <><Spinner /> Reserving your place…</> : <><Check size={18} /> Confirm booking</>}</button>
-                <p className="mt-2 text-center text-[12px] text-slate-500">Free to cancel up to your appointment time.</p>
+                {requiresPayment(h.id, svc.fee) ? (
+                  <>
+                    <div className="mt-4 flex items-center justify-between rounded-2xl bg-ink px-4 py-3 text-white"><span className="text-[14px] text-white/70">Total to pay now</span><span className="font-display text-[22px] font-semibold tabular">{naira(svc.fee)}</span></div>
+                    <button onClick={confirm} disabled={loading} className="btn btn-brand mt-3 h-14 w-full text-[16px]" data-testid="pay-and-book">{loading ? <><Spinner /> Opening secure checkout…</> : <><Lock size={18} /> Pay {naira(svc.fee)} and book</>}</button>
+                    <p className="mt-2 flex items-start justify-center gap-1.5 text-center text-[12px] text-slate-500"><ShieldCheck size={14} className="mt-px shrink-0 text-brand-600" />Paid securely through Paystack straight to {h.name}. Your slot is held for {HOLD_MINUTES} minutes. Cancel before your appointment for a full refund.</p>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={confirm} disabled={loading} className="btn btn-brand mt-5 h-14 w-full text-[16px]">{loading ? <><Spinner /> Reserving your place…</> : <><Check size={18} /> Confirm booking</>}</button>
+                    <p className="mt-2 text-center text-[12px] text-slate-500">{svc.fee ? `Pay ${naira(svc.fee)} at the hospital. ` : ''}Free to cancel up to your appointment time.</p>
+                  </>
+                )}
               </div>
             )}
           </motion.div>

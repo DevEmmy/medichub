@@ -19,5 +19,9 @@ services:
         sync: false          # emails: password resets, status reminders, weekly reports
       - key: MAIL_FROM
         sync: false          # e.g. Medic Hub <alerts@yourdomain.ng>
+      - key: PAYSTACK_SECRET_KEY
+        sync: false          # online payments: sk_test_… to try, sk_live_… to go live (dashboard.paystack.com › Settings › API Keys)
+      - key: PLATFORM_FEE_PERCENT
+        value: "0"           # Medic Hub's share of each booking payment (0 = hospital gets everything)
       - key: ANTHROPIC_API_KEY
         sync: false          # Medic AI answers (optional)

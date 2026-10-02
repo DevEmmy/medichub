@@ -183,7 +183,8 @@ export const saveService = rpc('hospitals.saveService', async function saveServi
     if (s.id) {
       const x = d.hospital_services.find((y) => y.id === s.id && y.hospitalId === hospitalId)
       if (!x) throw new AppError('not_found', 'Service not found.')
-      Object.assign(x, s)
+      const { name, category, departmentId, durationMins, fee, bookable, active } = s
+      Object.assign(x, Object.fromEntries(Object.entries({ name, category, departmentId, durationMins, fee, bookable, active }).filter(([, v]) => v !== undefined)))
     } else {
       d.hospital_services.push({ id: uid('sv_'), hospitalId, name: s.name.trim(), category: s.category, departmentId: s.departmentId, durationMins: s.durationMins ?? 20, fee: s.fee, bookable: s.bookable ?? true, active: true })
     }

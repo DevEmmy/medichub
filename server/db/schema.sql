@@ -66,6 +66,7 @@ create table if not exists hospitals (
   plan text default 'basic' check (plan in ('basic','premium')),
   plan_trial_ends_at text,
   automations jsonb,
+  payouts_enabled boolean,
   owner_user_id text not null references users(id),
   submitted_at timestamptz,
   created_at timestamptz not null default now(),
@@ -164,10 +165,15 @@ create table if not exists bookings (
   date date not null,
   time text not null,
   reason text,
-  status text not null check (status in ('pending','confirmed','checked_in','in_consultation','completed','cancelled','no_show')),
+  status text not null check (status in ('awaiting_payment','pending','confirmed','checked_in','in_consultation','completed','cancelled','no_show')),
   created_at timestamptz not null,
   updated_at timestamptz not null,
-  reminded_at timestamptz
+  reminded_at timestamptz,
+  amount integer,
+  payment_status text check (payment_status in ('unpaid','paid','refunded','failed')),
+  payment_ref text,
+  paid_at timestamptz,
+  pay_at_hospital boolean
 );
 create index if not exists bookings_patient_idx on bookings(patient_id);
 create index if not exists bookings_hospital_date_idx on bookings(hospital_id, date);
@@ -281,3 +287,45 @@ create table if not exists hospital_reviews (
   reply jsonb
 );
 create index if not exists hospital_reviews_h_idx on hospital_reviews(hospital_id, created_at desc);
+
+create table if not exists payments (
+  id text primary key,
+  reference text not null unique,
+  booking_id text not null references bookings(id) on delete cascade,
+  hospital_id text not null references hospitals(id),
+  patient_id text not null references users(id),
+  amount_kobo integer not null check (amount_kobo > 0),
+  currency text not null default 'NGN',
+  status text not null check (status in ('initialized','success','failed','abandoned','refunded')),
+  provider text not null,
+  channel text,
+  gateway_response text,
+  created_at timestamptz not null,
+  paid_at timestamptz,
+  refunded_at timestamptz
+);
+create index if not exists payments_booking_idx on payments(booking_id);
+create index if not exists payments_hospital_idx on payments(hospital_id, created_at desc);
+
+create table if not exists hospital_payouts (
+  hospital_id text primary key references hospitals(id) on delete cascade,
+  bank_code text not null,
+  bank_name text not null,
+  account_last4 text not null,
+  account_name text not null,
+  subaccount_code text not null,
+  provider text not null,
+  verified_at timestamptz not null
+);
+
+-- Upgrades for databases created before payments existed
+alter table hospitals add column if not exists payouts_enabled boolean;
+alter table bookings add column if not exists amount integer;
+alter table bookings add column if not exists payment_status text;
+alter table bookings add column if not exists payment_ref text;
+alter table bookings add column if not exists paid_at timestamptz;
+alter table bookings add column if not exists pay_at_hospital boolean;
+alter table hospitals add column if not exists photos jsonb;
+alter table hospital_documents add column if not exists file_id text;
+alter table bookings drop constraint if exists bookings_status_check;
+alter table bookings add constraint bookings_status_check check (status in ('awaiting_payment','pending','confirmed','checked_in','in_consultation','completed','cancelled','no_show'))

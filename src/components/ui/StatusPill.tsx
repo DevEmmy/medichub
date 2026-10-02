@@ -33,6 +33,7 @@ export const capTone = (c: OverallCapacity | EmergencyCapacity): Tone => (c === 
 export const capLabel = (c: OverallCapacity | EmergencyCapacity) => ({ available: 'Available', moderate: 'Moderate', high: 'High', full: 'Full', limited: 'Limited' }[c])
 
 export const BOOKING_STATUS: Record<BookingStatus, { label: string; tone: Tone }> = {
+  awaiting_payment: { label: 'Awaiting payment', tone: 'warn' },
   pending: { label: 'Pending', tone: 'warn' },
   confirmed: { label: 'Confirmed', tone: 'good' },
   checked_in: { label: 'Checked in', tone: 'info' },

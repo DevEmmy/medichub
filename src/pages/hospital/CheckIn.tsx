@@ -10,6 +10,7 @@ import { Spinner } from '../../components/ui/States'
 import { useToast } from '../../contexts/ToastContext'
 import { fmtDate, fmtTime, today, relTime } from '../../utils/date'
 import { DEMO } from '../../config'
+import { naira } from '../../services/payments'
 import { QrScanner } from '../../components/ui/QrScanner'
 
 export default function CheckIn() {
@@ -38,8 +39,8 @@ export default function CheckIn() {
     setBusy(true)
     try { await setBookingStatus(hospitalId, live.id, 'checked_in'); setDone(true); toast('success', 'Patient checked in', `${live.patientName} · ${live.ref}`) } catch (e) { setError((e as Error).message) } finally { setBusy(false) }
   }
-  const canCheckIn = live && (live.status === 'confirmed' || live.status === 'no_show')
-  const warn = live && live.date !== today() ? `This booking is for ${fmtDate(live.date)}, not today.` : null
+  const canCheckIn = live && (live.status === 'confirmed' || live.status === 'pending' || live.status === 'no_show')
+  const warn = live && live.status === 'awaiting_payment' ? 'This patient has not completed payment. Ask them to pay from their booking, or cancel it.' : live && live.date !== today() ? `This booking is for ${fmtDate(live.date)}, not today.` : null
 
   return (
     <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -65,8 +66,10 @@ export default function CheckIn() {
                 <div className="min-w-0 flex-1"><p className="font-display text-[22px] font-semibold text-ink">{live.patientName}</p><p className="text-[13px] text-slate-500">{live.patientPhone ?? 'No phone on file'}</p></div>
                 <BookingStatusPill status={live.status} />
               </div>
-              <dl className="grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
-                {[['Booking ID', live.ref], ['Service', live.serviceName], ['Date', live.date === today() ? 'Today' : fmtDate(live.date)], ['Time', fmtTime(live.time)]].map(([k, v]) => <div key={k}><dt className="text-[12px] text-slate-500">{k}</dt><dd className="mt-0.5 text-[15px] font-semibold text-ink">{v}</dd></div>)}
+              <dl className="grid grid-cols-2 gap-4 p-5 sm:grid-cols-3">
+                {[['Booking ID', live.ref], ['Service', live.serviceName], ['Department', live.departmentName ?? '—'], ['Date', live.date === today() ? 'Today' : fmtDate(live.date)], ['Time', fmtTime(live.time)],
+                  ['Payment', live.paymentStatus === 'paid' ? `Paid ${naira(live.amount ?? 0)}` : live.paymentStatus === 'refunded' ? 'Refunded' : live.status === 'awaiting_payment' ? 'Not paid yet' : live.amount ? `Collect ${naira(live.amount)}` : 'No fee'],
+                  ['Booked', relTime(live.createdAt)], ['Payment ref', live.paymentRef ?? '—']].map(([k, v]) => <div key={k}><dt className="text-[12px] text-slate-500">{k}</dt><dd className="mt-0.5 text-[15px] font-semibold text-ink">{v}</dd></div>)}
               </dl>
               {live.reason && <p className="mx-5 mb-4 rounded-xl bg-canvas p-3 text-[13.5px] text-slate-700"><span className="font-semibold">Reason:</span> {live.reason}</p>}
               {warn && !done && <p className="mx-5 mb-4 rounded-xl bg-amber-50 p-3 text-[13.5px] font-medium text-amber-700">{warn}</p>}

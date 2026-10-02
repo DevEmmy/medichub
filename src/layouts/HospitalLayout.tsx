@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Activity, CalendarRange, ClipboardList, ScanLine, Building2, Megaphone, ShieldCheck, LayoutDashboard, Menu, X, ExternalLink, Settings, Star, Crown, BarChart3, Workflow, QrCode } from 'lucide-react'
+import { Activity, CalendarRange, ClipboardList, ScanLine, Building2, Megaphone, ShieldCheck, LayoutDashboard, Menu, X, ExternalLink, Settings, Star, Crown, BarChart3, Workflow, QrCode, Banknote } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useLive } from '../hooks/useLive'
 import { db } from '../lib/store'
@@ -22,6 +22,7 @@ const NAV = [
   { to: '/hospital/check-in', label: 'Check-in', icon: ScanLine },
   { to: '/hospital/profile', label: 'Hospital profile', icon: Building2 },
   { to: '/hospital/announcements', label: 'Announcements', icon: Megaphone },
+  { to: '/hospital/payments', label: 'Payments', icon: Banknote },
   { to: '/hospital/reviews', label: 'Ratings', icon: Star },
   { to: '/hospital/qr', label: 'Entrance QR poster', icon: QrCode },
   { to: '/hospital/verification', label: 'Verification', icon: ShieldCheck },

@@ -38,13 +38,16 @@ export function visibleData(userId: string | null, only?: TableName[]): Partial<
     hospital_documents: all.hospital_documents.filter((d) => role === 'admin' || staffOf.has(d.hospitalId)),
     password_resets: [],
     hospital_reviews: byHosp(all.hospital_reviews),
+    payments: u ? all.payments.filter((p) => p.patientId === u.id || staffOf.has(p.hospitalId)) : [],
+    hospital_payouts: all.hospital_payouts.filter((p) => role === 'admin' || staffOf.has(p.hospitalId)),
   }
   if (!only) return out
   // Visibility of child rows depends on these tables, so send the dependants together.
   const want = new Set(only)
   if (want.has('hospitals')) HOSPITAL_CHILDREN.forEach((t) => want.add(t))
   if (want.has('hospital_staff')) return out
-  if (want.has('bookings')) want.add('booking_events')
+  if (want.has('bookings')) { want.add('booking_events'); want.add('payments') }
+  if (want.has('payments')) want.add('bookings')
   only = [...want]
   return Object.fromEntries(only.filter((t) => TABLE_ORDER.includes(t)).map((t) => [t, out[t]])) as Partial<Tables>
 }

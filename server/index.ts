@@ -18,7 +18,7 @@ import { Database } from './db'
 import { visibleData } from './policy'
 import { db, emptyTables, type TableName } from '../src/lib/store'
 import { registry } from '../src/lib/rpc'
-import { AppError, mailer, sessionRuntime } from '../src/services/core'
+import { AppError, mailer, payments, sessionRuntime } from '../src/services/core'
 import { hashPasswordStrong } from '../src/lib/ids'
 import { buildPublicDirectory, buildSeed, ensureSlots } from '../src/data/seed'
 import { startReminderScheduler } from '../src/services/reminders'
@@ -32,12 +32,14 @@ import '../src/services/notifications'
 import '../src/services/plans'
 import '../src/services/reminders'
 import '../src/services/reviews'
+import { settleReference } from '../src/services/payments'
+import { paystackGateway, validWebhookSignature } from './paystack'
 
 const PORT = Number(process.env.PORT ?? 8787)
 const SESSION_DAYS = 30
 const STATIC_DIR = process.env.STATIC_DIR ?? join(process.cwd(), 'dist')
 const ORIGINS = (process.env.ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean)
-const PUBLIC_RPCS = new Set(['auth.signIn', 'auth.signUp', 'auth.requestPasswordReset', 'auth.resetPassword'])
+const PUBLIC_RPCS = new Set(['auth.signIn', 'auth.signUp', 'auth.requestPasswordReset', 'auth.resetPassword', 'bookings.verifyPass', 'payments.confirmPayment'])
 
 interface Ctx { session: Session | null; sessionChanged: boolean; changed: Set<TableName> }
 const als = new AsyncLocalStorage<Ctx>()
@@ -209,7 +211,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/sync') {
       const a = authed(req, url)
       const only = url.searchParams.get('tables')?.split(',').filter(Boolean) as TableName[] | undefined
-      return send(res, 200, { data: visibleData(a?.session.userId ?? null, only), userId: a?.session.userId ?? null })
+      return send(res, 200, { data: visibleData(a?.session.userId ?? null, only), userId: a?.session.userId ?? null, payments: payments.gateway.mode })
     }
     if (url.pathname === '/api/events') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' })
@@ -225,6 +227,20 @@ const server = createServer(async (req, res) => {
       return send(res, 200, { ok: true })
     }
     if (url.pathname === '/api/ask' && req.method === 'POST') return await handleAsk(req, res)
+    if (url.pathname === '/api/paystack/webhook' && req.method === 'POST') {
+      const chunks: Buffer[] = []; for await (const c of req) chunks.push(c as Buffer)
+      const raw = Buffer.concat(chunks)
+      if (!validWebhookSignature(raw, req.headers['x-paystack-signature'] as string | undefined)) return send(res, 401, { error: { code: 'auth', message: 'Bad signature' } })
+      let evt: { event?: string; data?: { reference?: string } } = {}
+      try { evt = JSON.parse(raw.toString('utf8')) } catch { return send(res, 400, { error: { code: 'bad_request', message: 'Invalid JSON' } }) }
+      if (evt.event === 'charge.success' && evt.data?.reference) {
+        // Re-verify with Paystack rather than trusting the webhook body alone
+        const ctx: Ctx = { session: null, sessionChanged: false, changed: new Set() }
+        await als.run(ctx, () => settleReference(evt.data!.reference!)).catch((e) => console.error('[webhook]', e))
+        await database.flush()
+      }
+      return send(res, 200, { ok: true })
+    }
     if (url.pathname === '/api/files' && req.method === 'POST') return await uploadFile(req, res, url)
     if (url.pathname.startsWith('/api/files/') && req.method === 'GET') return await downloadFile(res, url.pathname.slice(11), url, req)
     if (url.pathname === '/api/health') return send(res, 200, { ok: database.failures === 0, database: database.kind, persistFailures: database.failures, hospitals: db.select('hospitals').length, users: db.select('users').length })
@@ -273,9 +289,14 @@ async function main() {
       if (!r.ok) throw new Error(`email failed: ${r.status} ${await r.text().catch(() => '')}`)
     }
   }
+  if (process.env.PAYSTACK_SECRET_KEY) {
+    payments.gateway = paystackGateway()
+    payments.callbackUrl = (process.env.APP_URL ?? '').replace(/\/?$/, '/') + '?paystack=1'
+    if (!process.env.APP_URL) console.warn('[boot] set APP_URL so Paystack can send patients back after paying')
+  }
   await database.flush()
   startReminderScheduler()
-  server.listen(PORT, () => console.log(`[boot] Medic Hub on :${PORT} · database: ${database.kind} · email: ${mailer.enabled ? 'on' : 'off'} · AI: ${process.env.ANTHROPIC_API_KEY ? 'on' : 'off'} · ${db.select('hospitals').length} hospitals`))
+  server.listen(PORT, () => console.log(`[boot] Medic Hub on :${PORT} · database: ${database.kind} · email: ${mailer.enabled ? 'on' : 'off'} · AI: ${process.env.ANTHROPIC_API_KEY ? 'on' : 'off'} · payments: ${payments.gateway.mode} · ${db.select('hospitals').length} hospitals`))
 }
 
 const shutdown = async () => { await database.flush().catch(() => {}); await database.close().catch(() => {}); process.exit(0) }

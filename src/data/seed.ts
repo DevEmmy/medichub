@@ -148,7 +148,7 @@ export function buildSeed(): Tables {
     users: [], patient_profiles: [], hospitals: [], hospital_staff: [], hospital_departments: [], hospital_services: [],
     hospital_doctors: [], hospital_status: [], hospital_capacity: [], hospital_slots: [], bookings: [], booking_events: [],
     health_profiles: [], health_events: [], emergency_contacts: [], notifications: [], hospital_announcements: [],
-    hospital_documents: [], password_resets: [], hospital_reviews: [],
+    hospital_documents: [], password_resets: [], hospital_reviews: [], payments: [], hospital_payouts: [],
   }
   const plain = 'plain:' + DEMO_PASSWORD
   const mkUser = (id: string, email: string, role: User['role'], name: string, phone?: string): User => ({ id, email, passwordHash: plain, role, name, phone, createdAt: now })
@@ -281,6 +281,10 @@ export function buildSeed(): Tables {
     }
   }
 
+  // Demo settlement account (test mode) so the pitch demo can show online payment
+  t.hospitals.find((h) => h.id === 'h_lagooncrest')!.payoutsEnabled = true
+  t.hospital_payouts.push({ hospitalId: 'h_lagooncrest', bankCode: '058', bankName: 'Guaranty Trust Bank', accountLast4: '4410', accountName: 'TEST ACCOUNT 4410', subaccountCode: 'ACCT_demo', provider: 'test', verifiedAt: new Date().toISOString() })
+
   // Ratings for the fictional demo hospital only (real hospitals start with none — no invented reviews)
   const RV: [number, string[], string][] = [
     [5, ['Short wait', 'Kind staff'], 'Booked the night before, was seen within 20 minutes of arriving. Nurses were patient with my mum.'],
@@ -339,6 +343,6 @@ export function buildPublicDirectory(): Tables {
     hospital_doctors: [], hospital_status: keep(t.hospital_status).map((s) => ({ ...s, updatedAt: old })),
     hospital_capacity: keep(t.hospital_capacity).map((c) => ({ ...c, updatedAt: old })), hospital_slots: [],
     bookings: [], booking_events: [], health_profiles: [], health_events: [], emergency_contacts: [], notifications: [],
-    hospital_announcements: [], hospital_documents: [], password_resets: [], hospital_reviews: [],
+    hospital_announcements: [], hospital_documents: [], password_resets: [], hospital_reviews: [], payments: [], hospital_payouts: [],
   }
 }

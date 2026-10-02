@@ -2,8 +2,9 @@ import { rpc } from '../lib/rpc'
 import { db } from '../lib/store'
 import { bookingRef, secureToken, uid } from '../lib/ids'
 import type { Booking, BookingStatus } from '../types'
-import { AppError, ENUMS, latency, oneOf, requireHospitalStaff, requireRole, text } from './core'
+import { AppError, ENUMS, currentUser, latency, oneOf, requireHospitalStaff, requireRole, text } from './core'
 import { notify } from './notifications'
+import { refundPayment, requiresPayment } from './payments'
 import { fmtDate, fmtTime, nowHHMM, today } from '../utils/date'
 
 export interface BookingView extends Booking {
@@ -26,7 +27,53 @@ function enrich(b: Booking): BookingView {
 }
 
 export const QR_PREFIX = 'MEDICHUB'
-export const qrPayload = (b: Booking) => `${QR_PREFIX}:${b.ref}:${b.token}`
+/** Public address of the app, used inside QR codes so any phone camera can open them. */
+export function appBase() {
+  if (typeof window === 'undefined') return ''
+  const framed = (() => { try { return window.self !== window.top } catch { return true } })()
+  return framed || /claudeusercontent|claude\.ai/.test(location.host) ? 'https://devemmy.github.io/medichub/' : location.origin + location.pathname
+}
+/** The QR on a booking pass is a secure link: ref + a secret token only the patient's pass contains. */
+export const qrPayload = (b: Booking) => `${appBase()}#/pass/${b.ref}?t=${b.token}`
+export function parsePassCode(code: string): { ref: string; token: string | null } {
+  const raw = code.trim()
+  const url = raw.match(/\/pass\/(MED-[A-Z0-9]{6})\?t=([A-Za-z0-9]+)/i)
+  if (url) return { ref: url[1].toUpperCase(), token: url[2] }
+  if (raw.toUpperCase().startsWith(QR_PREFIX + ':')) { const p = raw.split(':'); return { ref: (p[1] || '').toUpperCase(), token: p[2] || null } }
+  let ref = raw.toUpperCase()
+  if (/^[A-Z0-9]{6}$/.test(ref)) ref = 'MED-' + ref
+  return { ref, token: null }
+}
+
+export interface PassCheck {
+  valid: boolean
+  message?: string
+  ref?: string; status?: BookingStatus; patientName?: string; patientPhone?: string; reason?: string
+  hospitalId?: string; hospitalName?: string; hospitalAddress?: string; serviceName?: string; departmentName?: string
+  date?: string; time?: string; amount?: number; paymentStatus?: string; payAtHospital?: boolean; paidAt?: string; bookedAt?: string
+  bookingId?: string; viewer?: 'staff' | 'owner' | 'public'
+}
+
+/** Anyone holding the QR (ref + secret token) can confirm a pass is genuine. Staff of that hospital and the patient see every detail. */
+export const verifyPass = rpc('bookings.verifyPass', async function verifyPass(code: string): Promise<PassCheck> {
+  text(code, 400, 'a code', true)
+  const { ref, token } = parsePassCode(code)
+  const b = db.select('bookings').find((x) => x.ref === ref)
+  const u = currentUser()
+  const staff = !!(b && u && u.role === 'hospital' && db.select('hospital_staff').some((s) => s.userId === u.id && s.hospitalId === b.hospitalId))
+  const owner = !!(b && u && b.patientId === u.id)
+  if (!b || (!staff && !owner && token !== b.token) || (token && token !== b.token)) return { valid: false, message: 'This pass is not valid. Ask the patient to open their pass again.' }
+  const v = enrich(b)
+  const h = db.select('hospitals').find((x) => x.id === b.hospitalId)
+  const full = staff || owner
+  return {
+    valid: true, viewer: staff ? 'staff' : owner ? 'owner' : 'public', bookingId: full ? b.id : undefined,
+    ref: b.ref, status: b.status, patientName: full ? b.patientName : b.patientName.split(' ')[0] + ' ' + (b.patientName.split(' ').slice(-1)[0]?.[0] ?? '') + '.',
+    patientPhone: full ? b.patientPhone : undefined, reason: full ? b.reason : undefined,
+    hospitalId: b.hospitalId, hospitalName: v.hospitalName, hospitalAddress: h?.address, serviceName: v.serviceName, departmentName: v.departmentName,
+    date: b.date, time: b.time, amount: b.amount, paymentStatus: b.paymentStatus, payAtHospital: b.payAtHospital, paidAt: b.paidAt, bookedAt: b.createdAt,
+  }
+})
 
 // ---------------- Patient ----------------
 export function myBookings(): BookingView[] {
@@ -39,7 +86,7 @@ export function myBooking(idOrRef: string): BookingView | null {
   return b ? enrich(b) : null
 }
 export function isUpcoming(b: Booking) {
-  return (b.status === 'confirmed' || b.status === 'pending' || b.status === 'checked_in' || b.status === 'in_consultation') && (b.date > today() || (b.date === today()))
+  return (b.status === 'awaiting_payment' || b.status === 'confirmed' || b.status === 'pending' || b.status === 'checked_in' || b.status === 'in_consultation') && (b.date > today() || (b.date === today()))
 }
 
 export const createBooking = rpc('bookings.createBooking', async function createBooking(input: { hospitalId: string; serviceId: string; slotId: string; reason?: string; phone?: string }): Promise<BookingView> {
@@ -57,8 +104,12 @@ export const createBooking = rpc('bookings.createBooking', async function create
   let ref = bookingRef()
   while (db.select('bookings').some((b) => b.ref === ref)) ref = bookingRef()
   const now = new Date().toISOString()
-  const status: BookingStatus = h.autoConfirm ? 'confirmed' : 'pending'
-  const booking: Booking = { id: uid('bk_'), ref, token: secureToken(), patientId: u.id, patientName: u.name, patientPhone: input.phone || u.phone, hospitalId: h.id, serviceId: slot.serviceId, slotId: slot.id, date: slot.date, time: slot.time, reason: input.reason?.trim() || undefined, status, createdAt: now, updatedAt: now }
+  const svc0 = db.select('hospital_services').find((s) => s.id === slot.serviceId)
+  const fee = svc0?.fee && svc0.fee > 0 ? svc0.fee : undefined
+  const mustPay = requiresPayment(h.id, fee)
+  const status: BookingStatus = mustPay ? 'awaiting_payment' : h.autoConfirm ? 'confirmed' : 'pending'
+  const booking: Booking = { id: uid('bk_'), ref, token: secureToken(), patientId: u.id, patientName: u.name, patientPhone: input.phone || u.phone, hospitalId: h.id, serviceId: slot.serviceId, slotId: slot.id, date: slot.date, time: slot.time, reason: input.reason?.trim() || undefined, status, createdAt: now, updatedAt: now,
+    ...(fee ? { amount: fee, paymentStatus: 'unpaid' as const, payAtHospital: !mustPay } : {}) }
   db.write(['bookings', 'booking_events', 'hospital_slots'], (d) => {
     const s = d.hospital_slots.find((x) => x.id === slot.id)!
     if (s.booked >= s.capacity) throw new AppError('full', 'Someone just took the last place at that time. Pick another time.')
@@ -66,7 +117,8 @@ export const createBooking = rpc('bookings.createBooking', async function create
     d.bookings.push(booking)
     d.booking_events.push({ id: uid('be_'), bookingId: booking.id, status, at: now, by: 'patient' })
   })
-  const svc = db.select('hospital_services').find((s) => s.id === slot.serviceId)
+  const svc = svc0
+  if (mustPay) return enrich(booking) // confirmations go out once payment is verified
   notify(u.id, 'booking', status === 'confirmed' ? 'Booking confirmed' : 'Booking requested', `${svc?.name} at ${h.name}, ${fmtDate(slot.date)} at ${fmtTime(slot.time)}. Ref ${ref}.`, `/app/bookings/${booking.id}`)
   db.select('hospital_staff').filter((s) => s.hospitalId === h.id).forEach((s) => notify(s.userId, 'booking', 'New booking', `${u.name} booked ${svc?.name} for ${fmtDate(slot.date)} at ${fmtTime(slot.time)}.`, '/hospital/bookings'))
   return enrich(booking)
@@ -77,13 +129,14 @@ export const cancelMyBooking = rpc('bookings.cancelMyBooking', async function ca
   await latency(400)
   const b = db.select('bookings').find((x) => x.id === id && x.patientId === u.id)
   if (!b) throw new AppError('not_found', 'Booking not found.')
-  if (!['pending', 'confirmed'].includes(b.status)) throw new AppError('invalid', 'This booking can no longer be cancelled here. Call the hospital.')
+  if (!['awaiting_payment', 'pending', 'confirmed'].includes(b.status)) throw new AppError('invalid', 'This booking can no longer be cancelled here. Call the hospital.')
   transition(b, 'cancelled', 'patient', 'Cancelled by patient')
+  if (b.paymentStatus === 'paid' && b.paymentRef) await refundPayment(b.paymentRef, 'You cancelled the appointment.')
   db.select('hospital_staff').filter((s) => s.hospitalId === b.hospitalId).forEach((s) => notify(s.userId, 'booking', 'Booking cancelled', `${b.patientName} cancelled ${b.ref}.`, '/hospital/bookings'))
 })
 
 function transition(b: Booking, status: BookingStatus, by: 'patient' | 'hospital', note?: string) {
-  const releases = (status === 'cancelled' || status === 'no_show') && (b.status === 'pending' || b.status === 'confirmed')
+  const releases = (status === 'cancelled' || status === 'no_show') && (b.status === 'pending' || b.status === 'confirmed' || b.status === 'awaiting_payment')
   const now = new Date().toISOString()
   db.write(['bookings', 'booking_events', 'hospital_slots'], (d) => {
     const x = d.bookings.find((y) => y.id === b.id)!
@@ -95,6 +148,7 @@ function transition(b: Booking, status: BookingStatus, by: 'patient' | 'hospital
 
 // ---------------- Hospital ----------------
 export const NEXT_STATUSES: Record<BookingStatus, BookingStatus[]> = {
+  awaiting_payment: ['cancelled'],
   pending: ['confirmed', 'cancelled'],
   confirmed: ['checked_in', 'no_show', 'cancelled'],
   checked_in: ['in_consultation', 'completed', 'cancelled'],
@@ -126,6 +180,7 @@ export const setBookingStatus = rpc('bookings.setBookingStatus', async function 
   if (!b) throw new AppError('not_found', 'Booking not found.')
   if (!NEXT_STATUSES[b.status].includes(status)) throw new AppError('invalid', `A ${b.status.replace('_', ' ')} booking cannot move to ${status.replace('_', ' ')}.`)
   transition(b, status, 'hospital', note)
+  if (status === 'cancelled' && b.paymentStatus === 'paid' && b.paymentRef) await refundPayment(b.paymentRef, 'The hospital cancelled the appointment.')
   const h = db.select('hospitals').find((x) => x.id === hospitalId)!
   const m = STATUS_MSG[status]
   if (m) notify(b.patientId, 'booking', m[0], `${h.name} · ${b.ref}. ${note || m[1]}`, `/app/bookings/${b.id}`)
@@ -157,10 +212,7 @@ export const rescheduleBooking = rpc('bookings.rescheduleBooking', async functio
 /** Check-in lookup. Accepts a booking reference ("MED-7X82K9") or the full QR payload. */
 export function lookupBooking(hospitalId: string, code: string): BookingView | { error: string } {
   requireHospitalStaff(hospitalId)
-  const raw = code.trim().toUpperCase()
-  let ref = raw, token: string | null = null
-  if (raw.startsWith(QR_PREFIX + ':')) { const parts = code.trim().split(':'); ref = (parts[1] || '').toUpperCase(); token = parts[2] || null }
-  if (/^[A-Z0-9]{6}$/.test(ref)) ref = 'MED-' + ref
+  const { ref, token } = parsePassCode(code)
   const b = db.select('bookings').find((x) => x.ref === ref)
   if (!b) return { error: 'No booking matches that code. Check the reference and try again.' }
   if (b.hospitalId !== hospitalId) return { error: 'This booking is for a different facility.' }

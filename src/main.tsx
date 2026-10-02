@@ -7,7 +7,8 @@ import App from './App'
 import { startReminderScheduler } from './services/reminders'
 import { API_URL, BACKEND } from './config'
 import { api, getToken, setToken, syncTables } from './lib/rpc'
-import { getSession, setSession } from './services/core'
+import { getSession, payments, setSession } from './services/core'
+import { testGateway } from './services/testGateway'
 
 const root = createRoot(document.getElementById('root')!)
 const render = () => root.render(<StrictMode><App /></StrictMode>)
@@ -24,7 +25,8 @@ function bootError(retry: () => void) {
 async function bootBackend() {
   db.initClient()
   try {
-    const r = await api<{ data: Partial<Tables>; userId: string | null }>('/sync')
+    const r = await api<{ data: Partial<Tables>; userId: string | null; payments?: 'off' | 'test' | 'live' }>('/sync')
+    payments.gateway = { ...payments.gateway, mode: r.payments ?? 'off' }
     const s = getSession()
     if (!r.userId) { if (s || getToken()) { setToken(null); setSession(null) } }
     else if (!s || s.userId !== r.userId) setSession({ userId: r.userId, createdAt: new Date().toISOString() })
@@ -48,9 +50,19 @@ async function bootBackend() {
   window.addEventListener('online', () => { syncTables().catch(() => {}) })
 }
 
+// Returning from the payment page: Paystack adds ?reference=… to our callback address
+{
+  const q = new URLSearchParams(location.search)
+  const ref = q.get('reference') ?? q.get('trxref')
+  if (ref) {
+    history.replaceState(null, '', location.pathname + `#/payment/verify?reference=${encodeURIComponent(ref)}`)
+  }
+}
+
 if (BACKEND) {
   void bootBackend()
 } else {
+  payments.gateway = testGateway
   db.init(buildSeed, ensureSlots)
   startReminderScheduler()
   render()

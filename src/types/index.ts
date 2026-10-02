@@ -64,6 +64,8 @@ export interface Hospital {
   plan?: 'basic' | 'premium'
   planTrialEndsAt?: string
   automations?: Automations
+  /** Verified bank account on file: patients pay online and money settles to the hospital */
+  payoutsEnabled?: boolean
   ownerUserId: string
   submittedAt?: string
   createdAt: string
@@ -135,7 +137,7 @@ export interface HospitalCapacity {
 
 export interface Slot { id: string; hospitalId: string; serviceId: string; date: string; time: string; capacity: number; booked: number }
 
-export type BookingStatus = 'pending' | 'confirmed' | 'checked_in' | 'in_consultation' | 'completed' | 'cancelled' | 'no_show'
+export type BookingStatus = 'awaiting_payment' | 'pending' | 'confirmed' | 'checked_in' | 'in_consultation' | 'completed' | 'cancelled' | 'no_show'
 export interface Booking {
   id: string
   ref: string
@@ -154,6 +156,43 @@ export interface Booking {
   updatedAt: string
   /** Automation: day-before reminder already sent */
   remindedAt?: string
+  /** Payment: fee in naira when the service has a price */
+  amount?: number
+  paymentStatus?: PaymentStatus
+  paymentRef?: string
+  paidAt?: string
+  /** No online payment: the patient pays at the hospital */
+  payAtHospital?: boolean
+}
+
+export type PaymentStatus = 'unpaid' | 'paid' | 'refunded' | 'failed'
+export interface Payment {
+  id: string
+  reference: string
+  bookingId: string
+  hospitalId: string
+  patientId: string
+  /** Amount in kobo (₦1 = 100 kobo), as payment gateways expect */
+  amountKobo: number
+  currency: 'NGN'
+  status: 'initialized' | 'success' | 'failed' | 'abandoned' | 'refunded'
+  provider: 'paystack' | 'test'
+  channel?: string
+  gatewayResponse?: string
+  createdAt: string
+  paidAt?: string
+  refundedAt?: string
+}
+/** The hospital's verified settlement account. Only staff of that hospital (and reviewers) can read it. */
+export interface HospitalPayout {
+  hospitalId: string
+  bankCode: string
+  bankName: string
+  accountLast4: string
+  accountName: string
+  subaccountCode: string
+  provider: 'paystack' | 'test'
+  verifiedAt: string
 }
 export interface BookingEvent { id: string; bookingId: string; status: BookingStatus; at: string; by: 'patient' | 'hospital' | 'system'; note?: string }
 

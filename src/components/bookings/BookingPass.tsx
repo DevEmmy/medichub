@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom'
 import type { BookingView } from '../../services/bookings'
 import { qrPayload } from '../../services/bookings'
 import { QRCode, qrDataUrl } from '../ui/QRCode'
+import { PayNow } from './PayNow'
+import { naira } from '../../services/payments'
 import { BookingStatusPill } from '../ui/StatusPill'
 import { fmtDate, fmtTime } from '../../utils/date'
 import { isFramed } from '../../utils/env'
@@ -55,10 +57,12 @@ export function BookingPass({ b, animate = false, compactActions = false }: { b:
               <div><dt className="text-[11.5px] text-slate-500">Department</dt><dd className="text-[14.5px] font-semibold text-ink">{b.departmentName ?? '—'}</dd></div>
               <div><dt className="text-[11.5px] text-slate-500">Location</dt><dd className="text-[14.5px] font-semibold text-ink">{b.hospitalArea}, {b.hospitalCity}</dd></div>
               <div><dt className="text-[11.5px] text-slate-500">Status</dt><dd className="mt-0.5"><BookingStatusPill status={b.status} size="sm" /></dd></div>
+              {b.amount ? <div className="col-span-2"><dt className="text-[11.5px] text-slate-500">Payment</dt><dd className="text-[14.5px] font-semibold text-ink">{b.paymentStatus === 'paid' ? `Paid ${naira(b.amount)}${b.paymentRef ? ` · ${b.paymentRef}` : ''}` : b.paymentStatus === 'refunded' ? `Refunded ${naira(b.amount)}` : b.status === 'awaiting_payment' ? `${naira(b.amount)} due now` : `${naira(b.amount)} payable at the hospital`}</dd></div> : null}
             </dl>
+            {b.status === 'awaiting_payment' && <PayNow b={b} className="mt-4" />}
             <div className="mt-5 flex flex-col items-center rounded-2xl bg-canvas p-5">
               <motion.div initial={animate ? { opacity: 0, scale: 0.6 } : false} animate={{ opacity: 1, scale: 1 }} transition={{ delay: animate ? 0.55 : 0, type: 'spring', stiffness: 260, damping: 18 }} className="rounded-xl bg-white p-3 shadow-soft">
-                <QRCode value={qrPayload(b)} size={168} />
+                <QRCode value={qrPayload(b)} size={200} />
               </motion.div>
               <p className="mt-3 text-[11.5px] uppercase tracking-wider text-slate-500">Booking reference</p>
               <p className="select-all font-mono text-[22px] font-bold tracking-[0.12em] text-ink">{b.ref}</p>

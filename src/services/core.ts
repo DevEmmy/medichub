@@ -44,6 +44,23 @@ export const mailer = {
   send: async (_m: { to: string; subject: string; text: string }): Promise<void> => {},
 }
 
+/** Payment gateway. Off by default; the browser demo installs a test gateway and the server installs Paystack. */
+export interface PayGateway {
+  mode: 'off' | 'test' | 'live'
+  provider: 'paystack' | 'test'
+  listBanks(): Promise<{ code: string; name: string }[]>
+  resolveAccount(accountNumber: string, bankCode: string): Promise<{ accountName: string }>
+  createSubaccount(i: { businessName: string; bankCode: string; accountNumber: string }): Promise<{ subaccountCode: string }>
+  initialize(i: { email: string; amountKobo: number; reference: string; subaccount: string; callbackUrl: string; metadata: Record<string, string> }): Promise<{ authorizationUrl: string }>
+  verify(reference: string): Promise<{ status: 'success' | 'failed' | 'abandoned' | 'pending'; amountKobo: number; currency: string; paidAt?: string; channel?: string; gatewayResponse?: string }>
+  refund(reference: string): Promise<void>
+}
+const offGateway = (): never => { throw new AppError('unavailable', 'Online payment is not set up on this server yet.') }
+export const payments: { gateway: PayGateway; callbackUrl: string } = {
+  gateway: { mode: 'off', provider: 'paystack', listBanks: offGateway, resolveAccount: offGateway, createSubaccount: offGateway, initialize: offGateway, verify: offGateway, refund: offGateway },
+  callbackUrl: '',
+}
+
 /** The server swaps these for per-request sessions (see server/index.ts). */
 export const sessionRuntime = { get: browserGet, set: browserSet }
 export function getSession(): Session | null { return sessionRuntime.get() }
@@ -125,7 +142,7 @@ export const ENUMS = {
   overall: ['available', 'moderate', 'high', 'full'] as const,
   ecap: ['available', 'limited', 'full'] as const,
   resource: ['oxygen', 'pharmacy', 'laboratory', 'ambulance', 'maternity', 'theatre', 'bloodBank'] as const,
-  bookingStatus: ['pending', 'confirmed', 'checked_in', 'in_consultation', 'completed', 'cancelled', 'no_show'] as const,
+  bookingStatus: ['awaiting_payment', 'pending', 'confirmed', 'checked_in', 'in_consultation', 'completed', 'cancelled', 'no_show'] as const,
   verification: ['draft', 'pending', 'under_review', 'verified', 'needs_attention', 'rejected'] as const,
   severity: ['info', 'warning', 'critical'] as const,
   automation: ['patientReminders', 'lowBedAlert', 'weeklyReport'] as const,
