@@ -1,0 +1,6 @@
+import{c as a,j as e,L as n,f as s}from"./index-B1yxfVnR.js";/**
+ * @license lucide-react v1.48.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const t={name:"compass",size:24,node:[["circle",{cx:"12",cy:"12",r:"10",key:"1mglay"}],["path",{d:"m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z",key:"9ktpf1"}]]};t.node;const c=a(t);function m(){return e.jsxs("div",{className:"container-app flex min-h-[100dvh] flex-col py-6",children:[e.jsx(n,{}),e.jsxs("div",{className:"m-auto max-w-md text-center",children:[e.jsx("span",{className:"mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-mist text-slate-500",children:e.jsx(c,{size:26})}),e.jsx("h1",{className:"mt-5 text-[30px] font-semibold",children:"We couldn't find that page"}),e.jsx("p",{className:"mt-2 text-slate-600",children:"The link may be old or mistyped. If you need urgent help, call the nearest hospital emergency unit."}),e.jsxs("div",{className:"mt-6 flex justify-center gap-3",children:[e.jsx(s,{to:"/",className:"btn btn-primary",children:"Go home"}),e.jsx(s,{to:"/emergency",className:"btn btn-danger",children:"Emergency"})]})]})]})}export{m as default};
