@@ -19,6 +19,8 @@ import { slotWhen } from '../../components/hospitals/HospitalCard'
 import { MEALS } from '../../data/wellness'
 import { useT } from '../../i18n/LanguageContext'
 import { LocationPicker } from '../../components/hospitals/LocationBar'
+import { Slideshow } from '../../components/ui/Slideshow'
+import { HERO_SLIDES, SCENES } from '../../data/scenes'
 
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } }
 const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.28 } } }
@@ -33,6 +35,7 @@ export default function Home() {
   const { enterEmergency } = useEmergency()
   const { location } = useUserLocation()
   const [q, setQ] = useState('')
+  const [ai, setAi] = useState('')
   const [pickLoc, setPickLoc] = useState(false)
   const { data: bookings = [] } = useLive(myBookings, ['bookings', 'hospitals', 'hospital_services'])
   const { data: hospitals = [] } = useLive(listPublicHospitals, ['hospitals', 'hospital_status', 'hospital_capacity', 'hospital_slots'])
@@ -47,31 +50,44 @@ export default function Home() {
 
   return (
     <motion.div className="container-app py-6 sm:py-10" variants={stagger} initial="hidden" animate="show">
-      <motion.div variants={item}>
-        <h1 className="text-[32px] font-semibold leading-tight sm:text-[42px]">{greet}, {user?.name.split(' ')[0]}</h1>
-        <p className="mt-1 text-[16px] text-slate-600">{t('home.help')}</p>
-      </motion.div>
+      <motion.section variants={item} className="relative overflow-hidden rounded-[32px] bg-ink text-white shadow-lift grain">
+        <Slideshow slides={HERO_SLIDES} interval={6000} className="absolute inset-0" overlay="bg-[linear-gradient(100deg,rgba(6,40,31,.95)_0%,rgba(6,40,31,.8)_45%,rgba(6,40,31,.3)_100%)]" />
+        <div className="absolute inset-0 adire opacity-40 [mask-image:linear-gradient(90deg,black,transparent_70%)]" aria-hidden />
+        <div className="relative p-5 pb-6 sm:p-8 sm:pb-9">
+          <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-lime-300">{greet}</p>
+          <h1 className="mt-1 text-[34px] font-extrabold leading-[1.02] tracking-[-0.02em] text-white sm:text-[48px]">{user?.name.split(' ')[0]}, {(() => { const x = t('home.help').replace(/\?$/, ''); return x.charAt(0).toLowerCase() + x.slice(1) })()}<span className="text-lime-400">?</span></h1>
+          <form onSubmit={submit} className="mt-5 flex max-w-xl items-center gap-2 rounded-full bg-white p-1.5 pl-5 shadow-lift" role="search">
+            <Search size={19} className="shrink-0 text-slate-400" />
+            <label htmlFor="home-search" className="sr-only">Find a hospital, doctor or service</label>
+            <input id="home-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('home.search')} className="min-w-0 flex-1 bg-transparent py-2.5 text-[16px] text-ink outline-none placeholder:text-slate-400" />
+            <button className="btn btn-primary shrink-0 px-4">{t('home.searchBtn')}</button>
+          </form>
+          <div className="mt-3 flex flex-wrap gap-2">{['Antenatal', 'Scan', 'Dentist', 'Lab test'].map((x) => <button key={x} onClick={() => nav(`/find?q=${encodeURIComponent(x)}`)} className="rounded-full bg-white/10 px-3 py-1.5 text-[12.5px] font-semibold text-white ring-1 ring-white/15 backdrop-blur hover:bg-white/20">{x}</button>)}</div>
+        </div>
+      </motion.section>
 
-      <motion.form variants={item} onSubmit={submit} className="relative mt-6" role="search">
-        <label htmlFor="home-search" className="sr-only">Find a hospital, doctor or service</label>
-        <Search size={20} className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input id="home-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('home.search')} className="input h-[60px] rounded-2xl pl-14 pr-28 text-[16px] shadow-soft" />
-        <button className="btn btn-primary absolute right-2 top-1/2 h-11 -translate-y-1/2 rounded-xl px-4">{t('home.searchBtn')}</button>
-      </motion.form>
-
-      <motion.div variants={item} className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <motion.div variants={item} className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         {[
-          { label: t('home.findCare'), sub: t('home.findCareSub'), icon: Hospital, onClick: () => nav('/find'), tone: 'bg-white', ic: 'bg-brand-50 text-brand-700' },
-          { label: t('home.book'), sub: t('home.bookSub'), icon: CalendarPlus, onClick: () => nav('/find?appt=1'), tone: 'bg-white', ic: 'bg-amber-50 text-amber-700' },
-          { label: t('home.emergency'), sub: t('home.emergencySub'), icon: Siren, onClick: (e: React.MouseEvent) => enterEmergency(e), tone: 'bg-danger-600 text-white', ic: 'bg-white/15 text-white' },
-          { label: t('home.vault'), sub: t('home.vaultSub'), icon: ShieldPlus, onClick: () => nav('/app/health'), tone: 'bg-white', ic: 'bg-sky-50 text-sky-700' },
+          { label: t('home.findCare'), sub: t('home.findCareSub'), icon: Hospital, onClick: () => nav('/find'), img: SCENES.nurseWard },
+          { label: t('home.book'), sub: t('home.bookSub'), icon: CalendarPlus, onClick: () => nav('/find?appt=1'), img: SCENES.qrCheckin },
+          { label: t('home.emergency'), sub: t('home.emergencySub'), icon: Siren, onClick: (e: React.MouseEvent) => enterEmergency(e), img: SCENES.emergencyEntrance, danger: true },
+          { label: t('home.vault'), sub: t('home.vaultSub'), icon: ShieldPlus, onClick: () => nav('/app/health'), img: SCENES.bpCheck },
         ].map((a) => (
-          <button key={a.label} onClick={a.onClick} className={`flex min-h-[112px] flex-col justify-between rounded-3xl p-4 text-left shadow-soft ring-1 ring-black/5 transition hover:-translate-y-0.5 active:scale-[0.98] ${a.tone}`}>
-            <span className={`grid h-11 w-11 place-items-center rounded-2xl ${a.ic}`}><a.icon size={21} /></span>
-            <span><span className="block font-display text-[17px] font-semibold leading-tight">{a.label}</span><span className="block text-[12.5px] opacity-70">{a.sub}</span></span>
+          <button key={a.label} onClick={a.onClick} className="group relative flex min-h-[132px] flex-col justify-between overflow-hidden rounded-[26px] p-4 text-left text-white shadow-soft transition hover:-translate-y-0.5 active:scale-[0.98]">
+            <img src={a.img} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+            <span className={`absolute inset-0 ${a.danger ? 'bg-gradient-to-t from-danger-700 via-danger-600/80 to-danger-600/40' : 'bg-gradient-to-t from-ink via-ink/70 to-ink/20'}`} />
+            <span className={`relative grid h-10 w-10 place-items-center rounded-2xl ${a.danger ? 'bg-white text-danger-600' : 'bg-lime-400 text-ink'}`}><a.icon size={20} /></span>
+            <span className="relative"><span className="block font-display text-[18px] font-bold leading-tight">{a.label}</span><span className="block text-[12.5px] text-white/80">{a.sub}</span></span>
           </button>
         ))}
       </motion.div>
+
+      <motion.form variants={item} onSubmit={(e) => { e.preventDefault(); nav(`/assistant${ai.trim() ? `?q=${encodeURIComponent(ai.trim())}` : ''}`) }} className="mt-4 flex items-center gap-3 rounded-[26px] bg-lime-400 p-2 pl-4">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-ink text-lime-400"><Bot size={20} /></span>
+        <label htmlFor="ai-q" className="sr-only">Ask Medic AI</label>
+        <input id="ai-q" value={ai} onChange={(e) => setAi(e.target.value)} placeholder="Ask Medic AI anything…" className="min-w-0 flex-1 bg-transparent py-2 text-[15px] font-semibold text-ink outline-none placeholder:text-ink/55" />
+        <button className="btn btn-primary btn-sm shrink-0">Ask <ArrowRight size={14} /></button>
+      </motion.form>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-8">

@@ -10,7 +10,7 @@ const overflow = async (pg, name) => { const w = await pg.evaluate(() => [docume
 const shot = async (pg, name) => { await pg.waitForTimeout(700); await overflow(pg, name); await pg.screenshot({ path: `${out}/${name}.png`, fullPage: false }) }
 const step = async (name, fn) => { try { await fn(); console.log('OK', name) } catch (e) { errors.push(`STEP FAIL ${name}: ${e.message.split('\n')[0]}`); console.log('FAIL', name, e.message.split('\n')[0]) } }
 
-await step('landing', async () => { await p.goto(BASE); await p.getByText('without the guesswork').waitFor(); await shot(p, 'm-landing') })
+await step('landing', async () => { await p.goto(BASE); await p.getByText('right now.').first().waitFor(); await shot(p, 'm-landing') })
 await step('emergency public', async () => { await p.goto(BASE + '#/emergency'); await p.getByText('Call the hospital directly').first().waitFor(); await shot(p, 'm-emergency') })
 await step('guide', async () => { await p.goto(BASE + '#/emergency/severe-bleeding'); await p.getByText('Do this now').waitFor(); await shot(p, 'm-guide') })
 await step('triage', async () => { await p.goto(BASE + '#/triage'); await p.getByRole('button', { name: 'No' }).click(); await p.getByRole('button', { name: 'Yes' }).click(); await p.getByText('Get emergency care now').waitFor(); await shot(p, 'm-triage') })
@@ -53,6 +53,16 @@ await step('emergency call opens dialer sheet on desktop', async () => {
   await p.goto(BASE + '#/emergency'); await p.getByTestId('call-nearest').click()
   await p.getByTestId('call-sheet').waitFor({ timeout: 5000 })
   await p.keyboard.press('Escape')
+})
+await step('home is one tap away from any page', async () => {
+  await p.goto(BASE + '#/hospitals/h_lagooncrest'); await p.getByTestId('home-link').click(); await p.waitForURL(/#\/app$/)
+  await p.goto(BASE + '#/emergency'); await p.getByTestId('home-link').click(); await p.waitForURL(/#\/app$/)
+})
+await step('Medic AI answers and links to bookable hospitals', async () => {
+  await p.goto(BASE + '#/assistant?q=' + encodeURIComponent('Where can I get an ultrasound scan?'))
+  await p.getByTestId('ai-actions').first().waitFor({ timeout: 15000 })
+  if (!(await p.getByRole('link', { name: /Book/ }).count())) throw new Error('no Book action')
+  await shot(p, 'm-ai')
 })
 await step('vault', async () => { await p.goto(BASE + '#/app/health'); await p.getByText('Emergency snapshot').waitFor(); await shot(p, 'm-vault') })
 await step('bookings', async () => { await p.goto(BASE + '#/app/bookings'); await p.waitForTimeout(500); await shot(p, 'm-bookings') })

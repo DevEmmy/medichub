@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { SCENES } from '../../data/scenes'
 import { AnimatePresence, LayoutGroup } from 'framer-motion'
 import { List, Map as MapIcon, Search, SlidersHorizontal, X, Hospital, Siren } from 'lucide-react'
 import { HospitalCard } from '../../components/hospitals/HospitalCard'
@@ -109,8 +110,14 @@ export default function FindCare() {
           <Link to="/emergency" className="btn btn-danger btn-sm">Call nearest emergency unit</Link>
         </div>
       )}
-      <div className="flex flex-col gap-1">
-        <h1 className="text-[30px] font-semibold leading-tight sm:text-[36px]">{emergencyMode ? 'Emergency care near you' : 'Find care'}</h1>
+      <div className="relative overflow-hidden rounded-[28px] bg-ink px-5 py-6 text-white shadow-lift grain sm:px-7 sm:py-8">
+        <img src={emergencyMode ? SCENES.emergencyEntrance : SCENES.nurseWard} alt="" className="absolute inset-y-0 right-0 h-full w-full object-cover opacity-40 sm:w-[55%] sm:opacity-80 sm:[mask-image:linear-gradient(90deg,transparent,black_40%)]" />
+        <div className="absolute inset-0 adire opacity-40 [mask-image:linear-gradient(90deg,black,transparent_70%)]" aria-hidden />
+        <div className="relative max-w-lg">
+          <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-lime-300">{emergencyMode ? 'Emergency' : `${(all ?? []).length} hospitals`}</p>
+          <h1 className="mt-1 text-[32px] font-extrabold leading-[1.02] tracking-[-0.02em] text-white sm:text-[44px]">{emergencyMode ? 'Emergency care near you' : <>Find the right care, <span className="text-lime-400">fast.</span></>}</h1>
+          <p className="mt-2 text-[14.5px] text-white/70">{emergencyMode ? 'Open emergency units first, with direct lines.' : 'Live status, real services and open slots, closest first.'}</p>
+        </div>
       </div>
       <div className="mt-4"><LocationBar /></div>
 

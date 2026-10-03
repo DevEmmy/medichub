@@ -8,6 +8,7 @@
  * 3. Offline / unavailable: answers built from Medic Hub's own first-aid guides.
  */
 import { API_URL, BACKEND } from '../config'
+import { matchTopic } from './aiKnowledge'
 import { EMERGENCY_GUIDES, HEALTH_RESOURCES } from '../data/firstAid'
 import { LANGUAGES, type Lang } from '../i18n/strings'
 import type { HealthProfile } from '../types'
@@ -58,6 +59,8 @@ const RED_FLAGS = [
 export const isRedFlag = (text: string) => RED_FLAGS.some((r) => r.test(text))
 
 export function localAnswer(q: string): string {
+  const topic = matchTopic(q)
+  if (topic) return topic.answer
   const s = q.toLowerCase()
   const all = [...EMERGENCY_GUIDES.map((g) => ({ title: g.title, words: [g.title, g.short, ...g.keywords], steps: g.doNow, dont: g.dont, call: g.call112When })),
     ...HEALTH_RESOURCES.map((r) => ({ title: r.title, words: [r.title, r.summary], steps: r.doNow, dont: r.dont, call: r.call112When }))]

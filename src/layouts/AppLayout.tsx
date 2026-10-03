@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useLocation, Link } from 'react-router-dom'
-import { House, Search, ShieldPlus, Siren, BookOpenCheck, LogIn, Bot, QrCode } from 'lucide-react'
+import { NavLink, Outlet, useLocation, Link, useNavigate } from 'react-router-dom'
+import { House, Search, ShieldPlus, Siren, BookOpenCheck, Bot, QrCode, ArrowLeft } from 'lucide-react'
 import { useT } from '../i18n/LanguageContext'
 import { LanguageButton, LanguagePicker } from '../components/navigation/LanguagePicker'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth, homeFor } from '../contexts/AuthContext'
 import { useEmergency } from '../contexts/EmergencyContext'
 import { Logo } from '../components/ui/Logo'
 import { NotificationBell } from '../components/navigation/NotificationBell'
@@ -23,7 +23,7 @@ export function EmergencyButton({ compact = false }: { compact?: boolean }) {
 }
 
 export function AppLayout() {
-  const { user } = useAuth()
+  const { user, hospitalId } = useAuth()
   const patient = user?.role === 'patient'
   useNotificationToasts(user?.id)
   const { pathname } = useLocation()
@@ -33,21 +33,26 @@ export function AppLayout() {
 
   const desktopLinks = patient
     ? [{ to: '/app', label: t('nav.home'), end: true }, { to: '/find', label: t('nav.find') }, { to: '/app/bookings', label: t('nav.bookings') }, { to: '/app/health', label: t('nav.vault') }, { to: '/assistant', label: t('nav.assistantShort') }]
-    : [{ to: '/find', label: t('nav.find') }, { to: '/first-aid', label: t('nav.firstAid') }, { to: '/assistant', label: t('nav.assistant') }, { to: '/wellness', label: t('nav.wellness') }]
+    : [{ to: '/', label: t('nav.home'), end: true }, { to: '/find', label: t('nav.find') }, { to: '/first-aid', label: t('nav.firstAid') }, { to: '/assistant', label: t('nav.assistant') }, { to: '/wellness', label: t('nav.wellness') }]
   const mobile = patient
     ? [{ to: '/app', label: t('nav.home'), icon: House, end: true }, { to: '/find', label: t('nav.findShort'), icon: Search }, null, { to: '/assistant', label: t('nav.assistantShort'), icon: Bot }, { to: '/app/health', label: t('nav.vaultShort'), icon: ShieldPlus }]
-    : [{ to: '/find', label: t('nav.findShort'), icon: Search }, { to: '/first-aid', label: t('nav.firstAid'), icon: BookOpenCheck }, null, { to: '/assistant', label: t('nav.assistantShort'), icon: Bot }, { to: '/login', label: t('nav.signIn'), icon: LogIn }]
+    : [{ to: user ? homeFor(user.role, hospitalId) : '/', label: t('nav.home'), icon: House, end: true }, { to: '/find', label: t('nav.findShort'), icon: Search }, null, { to: '/assistant', label: t('nav.assistantShort'), icon: Bot }, { to: '/first-aid', label: t('nav.firstAid'), icon: BookOpenCheck }]
+  const home = user ? homeFor(user.role, hospitalId) : '/'
+  const ROOTS = ['/', '/app', '/find', '/assistant', '/first-aid', '/wellness', '/app/health']
+  const showBack = !ROOTS.includes(pathname)
+  const navigate = useNavigate()
+  const goBack = () => { if (window.history.state && window.history.state.idx > 0) navigate(-1); else navigate(home) }
 
   return (
     <div className="flex min-h-[100dvh] flex-col">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:shadow-lift">Skip to content</a>
       <OfflineBanner />
-      <header className="sticky z-40 border-b border-line/70 bg-canvas/80 backdrop-blur-xl" style={{ top: 'env(safe-area-inset-top, 0px)' }}>
+      <header className="sticky z-40 border-b border-line/70 bg-canvas/85 backdrop-blur-xl" style={{ top: 'env(safe-area-inset-top, 0px)' }}>
         <div className="container-app flex h-16 items-center gap-4">
-          <Logo to={patient ? '/app' : '/'} />
+          <Logo />
           <nav className="ml-6 hidden items-center gap-1 lg:flex" aria-label="Main">
             {desktopLinks.map((l) => (
-              <NavLink key={l.to} to={l.to} end={l.end} className={({ isActive }) => cn('rounded-full px-3.5 py-2 text-[14px] font-medium transition', isActive ? 'bg-white text-ink shadow-soft' : 'text-slate-600 hover:text-ink')}>{l.label}</NavLink>
+              <NavLink key={l.to} to={l.to} end={l.end} className={({ isActive }) => cn('rounded-full px-3.5 py-2 text-[14px] font-medium transition', isActive ? 'bg-ink font-semibold text-lime-300' : 'font-semibold text-slate-600 hover:bg-white hover:text-ink')}>{l.label}</NavLink>
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
@@ -57,27 +62,34 @@ export function AppLayout() {
             {patient ? (<><NotificationBell allHref="/app/notifications" /><UserMenu /></>) : user ? (
               <Link to={user.role === 'hospital' ? '/hospital' : '/admin'} className="btn btn-primary btn-sm">Dashboard</Link>
             ) : (
-              <div className="hidden items-center gap-2 sm:flex"><Link to="/login" className="btn btn-ghost btn-sm">{t('nav.signIn')}</Link><Link to="/signup" className="btn btn-primary btn-sm">{t('nav.createAccount')}</Link></div>
+              <><Link to="/login" className="btn btn-ghost btn-sm hidden sm:inline-flex">{t('nav.signIn')}</Link><Link to="/signup" className="btn btn-primary btn-sm hidden sm:inline-flex">{t('nav.createAccount')}</Link><Link to="/login" className="btn btn-primary btn-sm sm:hidden">{t('nav.signIn')}</Link></>
             )}
             <div className="sm:hidden"><EmergencyButton compact /></div>
           </div>
         </div>
       </header>
+
+      {showBack && (
+        <div className="container-app flex items-center gap-2 pt-3" data-testid="back-bar">
+          <button onClick={goBack} className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-[13px] font-bold text-ink shadow-soft ring-1 ring-black/5 hover:bg-mist"><ArrowLeft size={15} /> Back</button>
+          <Link to={home} className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-bold text-slate-600 hover:bg-white hover:text-ink" data-testid="home-link"><House size={15} /> Home</Link>
+        </div>
+      )}
       <main id="main" key={pathname.split('/').slice(0, 3).join('/')} className="flex-1 pb-28 lg:pb-12">
         <Outlet />
       </main>
       {/* Mobile tab bar with a raised emergency action in the centre */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/90 backdrop-blur-xl lg:hidden" aria-label="Primary" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-        <ul className="mx-auto grid h-[68px] max-w-md grid-cols-5 items-center px-2">
+      <nav className="fixed inset-x-3 bottom-3 z-40 rounded-[28px] bg-ink/95 shadow-lift ring-1 ring-white/10 backdrop-blur-xl lg:hidden" aria-label="Primary" style={{ marginBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        <ul className="mx-auto grid h-[66px] max-w-md grid-cols-5 items-center px-1">
           {mobile.map((m, i) => m ? (
             <li key={m.to}>
-              <NavLink to={m.to} end={'end' in m ? m.end : undefined} className={({ isActive }) => cn('flex flex-col items-center gap-1 rounded-xl py-1.5 text-[11px] font-medium transition', isActive ? 'text-ink' : 'text-slate-500')}>
+              <NavLink to={m.to} end={'end' in m ? m.end : undefined} className={({ isActive }) => cn('flex flex-col items-center gap-1 rounded-2xl py-1.5 text-[11px] font-bold transition', isActive ? 'text-lime-300' : 'text-white/55')}>
                 {({ isActive }) => (<><m.icon size={22} strokeWidth={isActive ? 2.3 : 1.8} /><span>{m.label}</span></>)}
               </NavLink>
             </li>
           ) : (
             <li key={'sos' + i} className="flex justify-center">
-              <button onClick={(e) => enterEmergency(e)} aria-label="Emergency" className="-mt-7 grid h-[62px] w-[62px] place-items-center rounded-full bg-danger-600 text-white shadow-[0_10px_24px_-6px_rgba(220,43,43,.65)] ring-4 ring-white transition active:scale-95">
+              <button onClick={(e) => enterEmergency(e)} aria-label="Emergency" className="-mt-8 grid h-[62px] w-[62px] place-items-center rounded-full bg-danger-600 text-white shadow-[0_10px_24px_-6px_rgba(240,78,55,.7)] ring-4 ring-canvas transition active:scale-95">
                 <span className="flex flex-col items-center"><Siren size={22} /><span className="text-[9.5px] font-bold uppercase tracking-wider">SOS</span></span>
               </button>
             </li>
