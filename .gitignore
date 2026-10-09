@@ -4,6 +4,7 @@ dist-single
 qa/shots
 *.log
 .DS_Store
-data
+/data
 server-dist
 dist-app
+qa/deck
