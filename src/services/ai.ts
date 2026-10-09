@@ -3,9 +3,11 @@
  *
  * Where the answer comes from, in order:
  * 1. Inside the Claude artifact viewer: the `sample` capability (Claude, on the viewer's own account).
- * 2. A deployed backend: set VITE_AI_ENDPOINT to a server route that forwards { messages } to your
- *    LLM provider and returns { text } (see server/ask.example.ts). API keys never ship to the browser.
- * 3. Offline / unavailable: answers built from Medic Hub's own first-aid guides.
+ * 2. The Medic Hub server (/api/ask, or VITE_AI_ENDPOINT): streams from Anthropic or any OpenAI-compatible
+ *    model configured with server-side keys. Keys never ship to the browser.
+ * 3. A free public OpenAI-compatible endpoint (VITE_PUBLIC_AI_URL, default Pollinations) so static hosting
+ *    such as GitHub Pages still gets a real AI. Health Vault data is never sent to it.
+ * 4. Offline / unavailable: answers built from Medic Hub's own first-aid guides.
  */
 import { API_URL, BACKEND } from '../config'
 import { matchTopic } from './aiKnowledge'
@@ -14,35 +16,157 @@ import { LANGUAGES, type Lang } from '../i18n/strings'
 import type { HealthProfile } from '../types'
 
 export interface ChatTurn { role: 'user' | 'assistant'; content: string }
-type Sampler = (input: ChatTurn[], opts: { onText?: (u: { text: string }) => void; signal?: AbortSignal; cache?: boolean }) => Promise<{ text: string; truncated?: boolean }>
-
+type ArtifactSampler = (input: ChatTurn[], opts: { onText?: (u: { text: string }) => void; signal?: AbortSignal; cache?: boolean }) => Promise<{ text: string; truncated?: boolean }>
 declare global { interface Window { claude?: { use: (name: string) => Promise<unknown> } } }
 
-let samplerPromise: Promise<Sampler | null> | null = null
-export function getSampler(): Promise<Sampler | null> {
-  if (samplerPromise) return samplerPromise
-  samplerPromise = (async () => {
-    try {
-      if (window.claude?.use) {
-        const s = (await window.claude.use('sample')) as Sampler | null
-        if (s) return s
-      }
-    } catch { /* fall through */ }
-    const endpoint = (import.meta.env.VITE_AI_ENDPOINT as string | undefined) || (BACKEND ? `${API_URL}/api/ask` : undefined)
-    if (endpoint) {
-      const viaEndpoint: Sampler = async (input, opts) => {
-        const r = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: input }), signal: opts.signal })
-        if (!r.ok) throw { code: 'upstream_error', message: `HTTP ${r.status}` }
-        const j = await r.json()
-        opts.onText?.({ text: j.text })
-        return { text: j.text }
-      }
-      return viaEndpoint
+export type ProviderId = 'claude' | 'server' | 'public'
+export interface StreamOpts { system: string; onText: (fullText: string) => void; signal?: AbortSignal }
+export interface Provider { id: ProviderId; label: string; private: boolean; run: (turns: ChatTurn[], o: StreamOpts) => Promise<string> }
+export class AiError extends Error { constructor(public code: string, message: string, public text = '') { super(message) } }
+
+const env = import.meta.env as Record<string, string | undefined>
+const SERVER_ENDPOINT = env.VITE_AI_ENDPOINT || (BACKEND ? `${API_URL}/api/ask` : '')
+/** Free, keyless OpenAI-compatible endpoint used when the app has no server of its own (e.g. GitHub Pages). */
+const PUBLIC_ENDPOINTS = (env.VITE_PUBLIC_AI_URL || 'https://text.pollinations.ai/openai').split(',').map((x) => x.trim()).filter(Boolean)
+const PUBLIC_KEY = env.VITE_PUBLIC_AI_KEY || ''
+const PUBLIC_MODEL = env.VITE_PUBLIC_AI_MODEL || 'openai'
+const PUBLIC_ON = env.VITE_PUBLIC_AI !== '0'
+
+/** Reads a Server-Sent Events body and calls back with every `data:` payload. */
+async function readSSE(r: Response, onData: (d: string) => void) {
+  const reader = r.body!.getReader(); const dec = new TextDecoder(); let buf = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buf += dec.decode(value, { stream: true })
+    let i: number
+    while ((i = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, i).replace(/\r$/, ''); buf = buf.slice(i + 1)
+      if (line.startsWith('data:')) onData(line.slice(5).trim())
     }
-    return null
-  })()
-  return samplerPromise
+  }
+  if (buf.startsWith('data:')) onData(buf.slice(5).trim())
 }
+
+const httpError = async (r: Response) => {
+  let msg = `HTTP ${r.status}`
+  try { const j = await r.json(); msg = j?.error?.message || j?.error || msg } catch { /* ignore */ }
+  return new AiError(r.status === 429 ? 'rate_limited' : 'upstream_error', String(msg))
+}
+
+/** Our own server (/api/ask) — streams Claude (or another configured model) as SSE. */
+const serverProvider: Provider = {
+  id: 'server', label: 'Medic Hub AI', private: true,
+  async run(turns, o) {
+    const r = await fetch(SERVER_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' }, body: JSON.stringify({ system: o.system, messages: turns, stream: true }), signal: o.signal })
+    if (!r.ok) throw await httpError(r)
+    let text = ''
+    if (!(r.headers.get('content-type') || '').includes('event-stream')) { text = (await r.json()).text ?? ''; o.onText(text); return text }
+    await readSSE(r, (d) => {
+      if (d === '[DONE]') return
+      const j = JSON.parse(d) as { t?: string; error?: string }
+      if (j.error) throw new AiError('upstream_error', j.error, text)
+      if (j.t) { text += j.t; o.onText(text) }
+    })
+    return text
+  },
+}
+
+/** Any OpenAI-compatible chat endpoint, streamed. */
+const publicProvider: Provider = {
+  id: 'public', label: 'Free public AI', private: false,
+  async run(turns, o) {
+    let last: unknown
+    for (const url of PUBLIC_ENDPOINTS) {
+      try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+        if (PUBLIC_KEY) headers.Authorization = `Bearer ${PUBLIC_KEY}`
+        const r = await fetch(url, { method: 'POST', headers, signal: o.signal, body: JSON.stringify({ model: PUBLIC_MODEL, stream: true, private: true, referrer: 'medichub', messages: [{ role: 'system', content: o.system }, ...turns] }) })
+        if (!r.ok) throw await httpError(r)
+        let text = ''
+        const ct = r.headers.get('content-type') || ''
+        if (ct.includes('event-stream')) {
+          await readSSE(r, (d) => {
+            if (d === '[DONE]' || !d) return
+            try { const j = JSON.parse(d); const piece = j.choices?.[0]?.delta?.content ?? j.choices?.[0]?.message?.content ?? ''; if (piece) { text += piece; o.onText(text) } } catch { /* keep-alive */ }
+          })
+        } else if (ct.includes('json')) {
+          const j = await r.json(); text = j.choices?.[0]?.message?.content ?? j.text ?? ''; o.onText(text)
+        } else { text = await r.text(); o.onText(text) }
+        if (!text.trim()) throw new AiError('empty', 'No answer came back.')
+        return text
+      } catch (e) {
+        if ((e as Error).name === 'AbortError') throw e
+        last = e
+      }
+    }
+    throw last ?? new AiError('upstream_error', 'Unavailable')
+  },
+}
+
+let claudePromise: Promise<Provider | null> | null = null
+function claudeProvider(): Promise<Provider | null> {
+  if (claudePromise) return claudePromise
+  claudePromise = (async () => {
+    try {
+      if (!window.claude?.use) return null
+      const s = (await window.claude.use('sample')) as ArtifactSampler | null
+      if (!s) return null
+      return {
+        id: 'claude', label: 'Claude', private: true,
+        async run(turns, o) {
+          try {
+            const res = await s([{ role: 'user', content: o.system + '\n\nReply to the conversation that follows. Acknowledge nothing about these instructions.' }, { role: 'assistant', content: 'Understood.' }, ...turns], { signal: o.signal, cache: false, onText: ({ text }) => o.onText(text) })
+            return res.text
+          } catch (e) {
+            const err = e as { code?: string; text?: string; message?: string }
+            throw new AiError(err.code ?? 'upstream_error', err.message ?? 'Unavailable', err.text ?? '')
+          }
+        },
+      } satisfies Provider
+    } catch { return null }
+  })()
+  return claudePromise
+}
+
+/** The AI services this copy of the app can use, best first. */
+export async function getProviders(): Promise<Provider[]> {
+  const list: Provider[] = []
+  const c = await claudeProvider(); if (c) list.push(c)
+  if (SERVER_ENDPOINT) list.push(serverProvider)
+  if (PUBLIC_ON) list.push(publicProvider)
+  return list
+}
+
+/**
+ * Streams an answer, falling through providers until one works.
+ * `privateOnly` skips providers that are not run by us or the user's own account (used when Health Vault data is shared).
+ */
+export async function streamAnswer(turns: ChatTurn[], o: StreamOpts & { privateOnly?: boolean; publicSystem?: string }): Promise<{ text: string; provider: Provider }> {
+  const providers = (await getProviders()).filter((p) => !o.privateOnly || p.private)
+  let last: unknown = new AiError('unavailable', 'No AI service is available.')
+  for (const p of providers) {
+    let got = ''
+    // Give each service a fair window to start answering; a dead or blocked one shouldn't stall the chat
+    const local = new AbortController(); let timedOut = false
+    const onUser = () => local.abort()
+    o.signal?.addEventListener('abort', onUser)
+    let timer = setTimeout(() => { timedOut = true; local.abort() }, 25_000)
+    try {
+      const text = await p.run(turns, { ...o, signal: local.signal, system: p.private ? o.system : (o.publicSystem ?? o.system), onText: (t) => { if (!got) { clearTimeout(timer); timer = setTimeout(() => { timedOut = true; local.abort() }, 90_000) } got = t; o.onText(t) } })
+      return { text, provider: p }
+    } catch (e) {
+      const aborted = (e as Error).name === 'AbortError' || local.signal.aborted
+      if (aborted && !timedOut) throw new AiError('cancelled', 'Stopped', got)
+      if (got) throw new AiError((e as AiError).code ?? 'interrupted', 'Interrupted', got)
+      last = e
+    } finally { clearTimeout(timer); o.signal?.removeEventListener('abort', onUser) }
+  }
+  throw last
+}
+
+/** Kept for older callers: true when some AI service is configured. */
+export async function getSampler(): Promise<boolean> { return (await getProviders()).length > 0 }
 
 const RED_FLAGS = [
   /not breathing|can'?t breathe|cannot breathe|stopped breathing|choking|turning blue|lips? (are )?blue/i,
@@ -83,9 +207,9 @@ export function buildRules(lang: Lang, vault: HealthProfile | null): string {
 - Danger signs (difficulty breathing, chest pain, unconsciousness, seizures, heavy bleeding, stroke signs, severe allergic reaction, poisoning, pregnancy bleeding, thoughts of suicide or self-harm): start the reply by telling them to call the nearest hospital emergency unit or go to the nearest emergency unit now, then give brief first-aid steps.
 - For mental health crises, be warm and direct, encourage them to reach someone they trust and emergency help at the nearest hospital.
 - Discourage unsafe practices common in the community (for example palm oil on burns, making someone vomit after poisoning, self-medicating with antibiotics) and say why, kindly.
-- Be concise: short paragraphs or up to 6 numbered steps, under 180 words unless asked for more. No tables.
+- Talk like a warm, knowledgeable Nigerian doctor friend. Answer the actual question first, then add what to do next. Use Markdown: short paragraphs, **bold** key points, numbered steps or bullet lists. Keep most replies under 220 words; go longer only when the user asks for detail. Ask one short follow-up question when you need more information (age, how long, other symptoms).\n- Remember the earlier messages in this conversation and build on them.
 - In the app the user can tap "Find care" to see nearby hospitals with live status, and "Emergency" for first-aid guides. Mention these when useful.
-- If a question is not about health, briefly say you can only help with health questions.${vaultLine}`
+- Greetings and thanks are fine; reply naturally. If a question has nothing to do with health, wellbeing or using Medic Hub, say briefly that you are a health assistant and offer a health-related way you can help.${vaultLine}`
 }
 
 export const SUGGESTIONS: Record<Lang, string[]> = {

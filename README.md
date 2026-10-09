@@ -24,7 +24,10 @@ Team Medic Hub · medichubnigeria@gmail.com · 07042744090
    - `APP_URL` – the public address, e.g. `https://medichub.onrender.com/`
    - `RESEND_API_KEY`, `MAIL_FROM` – email for password resets, 12-hour status reminders and weekly reports ([Resend](https://resend.com)). Without these, password reset is disabled for safety.
    - `PAYSTACK_SECRET_KEY` – online booking payments. Start with your `sk_test_…` key (Paystack test cards, no real money), switch to `sk_live_…` after Paystack approves your business. In the Paystack dashboard set the **Webhook URL** to `https://<your-site>/api/paystack/webhook`. `PLATFORM_FEE_PERCENT` sets Medic Hub's share (default 0).
-   - `ANTHROPIC_API_KEY` – optional, for Medic AI answers (otherwise it answers from the built-in first-aid guides)
+   - Medic AI (streams answers like ChatGPT). Set one of:
+     - `ANTHROPIC_API_KEY` – Claude (optional `MEDIC_AI_MODEL`, default `claude-sonnet-4-5`)
+     - `AI_API_KEY` + `AI_BASE_URL` + `AI_MODEL` – any OpenAI-compatible API. A free [Groq](https://console.groq.com) key works with the defaults (`https://api.groq.com/openai/v1`, `llama-3.3-70b-versatile`).
+     Without a key the app falls back to a free public AI (no Health Vault data is sent to it), then to the built-in first-aid guides.
 3. **Domain** – add your domain in Render (Settings › Custom domains).
 4. **First hospital** – a hospital signs up → completes the 7-step setup (details, location, services, registration, documents, administrator) → you sign in as reviewer, open their documents and verify → they appear to patients. Each hospital uploads its own photos and sets its own fees and live status.
 5. **Print the QR poster** – Hospital portal › Entrance QR poster.
@@ -54,7 +57,7 @@ server/db/schema.sql  one table per entity, typed columns, foreign keys, indexes
 - **QR codes**: patients' booking passes; hospitals scan them with any phone or laptop camera (or from a photo); printable entrance poster that patients scan to open the hospital's live page.
 - **Ratings**: only patients who checked in for a booked visit can rate (1–5 stars, tags, comment); hospitals reply publicly for free; "Top rated" sort.
 - **Freemium for hospitals**: Basic is free forever (listing, live status, emergency line, bookings, check-in, slots, announcements, reminders, ratings). Premium (₦25,000/month per facility, proposed; 30-day free trial) adds analytics, CSV export and automations. Paying never changes search or emergency ranking. Online billing (e.g. Paystack) is not connected yet.
-- **Medic AI** in five languages (English, Pidgin, Yoruba, Hausa, Igbo) with danger-sign detection.
+- **Medic AI**, a full chat assistant in five languages (English, Pidgin, Yoruba, Hausa, Igbo): streaming answers, saved conversations, follow-up questions, edit and regenerate, copy, voice input and read-aloud, danger-sign detection, and links straight to hospitals you can book.
 
 ## Payments
 

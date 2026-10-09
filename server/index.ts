@@ -137,21 +137,81 @@ async function handleRpc(req: IncomingMessage, res: ServerResponse, name: string
   }
 }
 
+/**
+ * Medic AI. Streams the answer back as Server-Sent Events: `data: {"t":"…"}` chunks, then `data: [DONE]`.
+ * Providers: ANTHROPIC_API_KEY (Claude), or any OpenAI-compatible API via AI_API_KEY + AI_BASE_URL + AI_MODEL
+ * (Groq, OpenRouter, OpenAI, Together…). Keys stay on the server.
+ */
 async function handleAsk(req: IncomingMessage, res: ServerResponse) {
-  const key = process.env.ANTHROPIC_API_KEY
-  if (!key) return send(res, 503, { error: { code: 'unavailable', message: 'Medic AI is not configured on this server.' } })
-  const ip = String(req.headers['x-forwarded-for'] ?? req.socket.remoteAddress ?? '')
+  const anthropic = process.env.ANTHROPIC_API_KEY
+  const compatKey = process.env.AI_API_KEY
+  if (!anthropic && !compatKey) return send(res, 503, { error: { code: 'unavailable', message: 'Medic AI is not configured on this server.' } })
+  const ip = String(req.headers['x-forwarded-for'] ?? req.socket.remoteAddress ?? '').split(',')[0].trim()
   if (limited(`${ip}:ask`, 20)) return send(res, 429, { error: { code: 'rate_limited', message: 'Too many questions at once. Wait a minute.' } })
-  const { messages, system } = (await body(req, 200_000)) as { messages?: { role: string; content: string }[]; system?: string }
-  if (!Array.isArray(messages) || !messages.length || messages.length > 24) return send(res, 400, { error: { code: 'bad_request', message: 'Invalid question.' } })
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: process.env.MEDIC_AI_MODEL ?? 'claude-sonnet-4-5', max_tokens: 800, system: typeof system === 'string' ? system.slice(0, 8000) : undefined, messages: messages.map((m) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content).slice(0, 4000) })) }),
-  })
-  if (!r.ok) { console.error('[ask] upstream', r.status, await r.text().catch(() => '')); return send(res, 502, { error: { code: 'upstream', message: 'Medic AI is unavailable right now.' } }) }
-  const j = (await r.json()) as { content?: { type: string; text?: string }[] }
-  send(res, 200, { text: (j.content ?? []).filter((c) => c.type === 'text').map((c) => c.text).join('\n') })
+  const { messages, system, stream } = (await body(req, 200_000)) as { messages?: { role: string; content: string }[]; system?: string; stream?: boolean }
+  if (!Array.isArray(messages) || !messages.length || messages.length > 40) return send(res, 400, { error: { code: 'bad_request', message: 'Invalid question.' } })
+  const msgs = messages.slice(-24).map((m) => ({ role: m.role === 'assistant' ? 'assistant' as const : 'user' as const, content: String(m.content ?? '').slice(0, 6000) })).filter((m) => m.content.trim())
+  while (msgs.length && msgs[0].role !== 'user') msgs.shift()
+  if (!msgs.length) return send(res, 400, { error: { code: 'bad_request', message: 'Invalid question.' } })
+  const sys = typeof system === 'string' ? system.slice(0, 8000) : undefined
+  const ctl = new AbortController()
+  res.on('close', () => { if (!res.writableFinished) ctl.abort() })
+
+  let upstream: Response
+  try {
+    upstream = anthropic
+      ? await fetch(`${(process.env.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com').replace(/\/$/, '')}/v1/messages`, {
+        method: 'POST', signal: ctl.signal,
+        headers: { 'content-type': 'application/json', 'x-api-key': anthropic, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: process.env.MEDIC_AI_MODEL ?? 'claude-sonnet-4-5', max_tokens: 1500, system: sys, messages: msgs, stream: true }),
+      })
+      : await fetch(`${(process.env.AI_BASE_URL ?? 'https://api.groq.com/openai/v1').replace(/\/$/, '')}/chat/completions`, {
+        method: 'POST', signal: ctl.signal,
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${compatKey}` },
+        body: JSON.stringify({ model: process.env.AI_MODEL ?? 'llama-3.3-70b-versatile', max_tokens: 1500, stream: true, messages: [...(sys ? [{ role: 'system', content: sys }] : []), ...msgs] }),
+      })
+  } catch (e) { console.error('[ask] network', e); return send(res, 502, { error: { code: 'upstream', message: 'Medic AI is unavailable right now.' } }) }
+  if (!upstream.ok || !upstream.body) {
+    console.error('[ask] upstream', upstream.status, await upstream.text().catch(() => ''))
+    return send(res, upstream.status === 429 ? 429 : 502, { error: { code: upstream.status === 429 ? 'rate_limited' : 'upstream', message: upstream.status === 429 ? 'Medic AI is busy. Try again in a minute.' : 'Medic AI is unavailable right now.' } })
+  }
+
+  // Pull text deltas out of either provider's event stream
+  const deltas = async function* () {
+    const reader = upstream.body!.getReader(); const dec = new TextDecoder(); let buf = ''
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += dec.decode(value, { stream: true })
+      let i: number
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1)
+        if (!line.startsWith('data:')) continue
+        const d = line.slice(5).trim()
+        if (!d || d === '[DONE]') continue
+        try {
+          const j = JSON.parse(d)
+          if (j.type === 'content_block_delta' && j.delta?.type === 'text_delta') yield String(j.delta.text)
+          else if (j.type === 'error') throw new Error(j.error?.message ?? 'stream error')
+          else if (j.choices?.[0]?.delta?.content) yield String(j.choices[0].delta.content)
+        } catch (e) { if (e instanceof SyntaxError) continue; throw e }
+      }
+    }
+  }
+
+  if (!stream) {
+    let text = ''
+    try { for await (const t of deltas()) text += t } catch (e) { console.error('[ask]', e) }
+    return send(res, text ? 200 : 502, text ? { text } : { error: { code: 'upstream', message: 'Medic AI is unavailable right now.' } })
+  }
+  res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' })
+  try {
+    for await (const t of deltas()) res.write(`data: ${JSON.stringify({ t })}\n\n`)
+    res.write('data: [DONE]\n\n')
+  } catch (e) {
+    if (!ctl.signal.aborted) { console.error('[ask] stream', e); res.write(`data: ${JSON.stringify({ error: 'Medic AI was interrupted.' })}\n\n`) }
+  }
+  res.end()
 }
 
 const DOC_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic'])

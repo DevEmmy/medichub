@@ -25,3 +25,5 @@ services:
         value: "0"           # Medic Hub's share of each booking payment (0 = hospital gets everything)
       - key: ANTHROPIC_API_KEY
         sync: false          # Medic AI answers (optional)
+      - key: AI_API_KEY
+        sync: false          # or a free Groq key instead of Anthropic (optional)
