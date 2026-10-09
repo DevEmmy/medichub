@@ -183,7 +183,7 @@ export async function runTeamDigests(now = new Date()) {
 
 // ------------------------------------------------------------------ delivery
 
-interface Compose {
+export interface Compose {
   to: string; toName?: string; audience: 'team' | 'patient'; kind: EmailKind; bookingId?: string; replyTo?: string
   subject: string; heading: string; lines: string[]; facts?: [string, string][]; cta?: { label: string; path: string }
 }
@@ -191,7 +191,7 @@ interface Compose {
 const shortDate = (s: string) => new Date(s + 'T12:00:00').toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 
-function render(c: Compose, hospitalName: string) {
+export function render(c: Compose, hospitalName: string) {
   const link = c.cta ? `${mailer.appUrl || ''}#${c.cta.path}` : ''
   const textBody = [c.heading, '', ...c.lines.flatMap((l) => [l, '']), ...(c.facts ?? []).map(([k, v]) => `${k}: ${v}`), ...(c.cta ? ['', `${c.cta.label}: ${link}`] : []), '', `Sent by Medic Hub for ${hospitalName}.`].join('\n')
   const html = `<!doctype html><html><body style="margin:0;background:#FBF8F1;font-family:Arial,Helvetica,sans-serif;color:#06281F">

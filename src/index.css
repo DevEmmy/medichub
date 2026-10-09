@@ -96,3 +96,5 @@
 .a11y-contrast .bg-canvas, .a11y-contrast .bg-mist { background-color: #fff !important; }
 .a11y-contrast :focus-visible { outline: 3px solid #000 !important; outline-offset: 2px; box-shadow: 0 0 0 6px #C6F36B !important; }
 @media (prefers-reduced-motion: reduce) { .a11y-reading { scroll-behavior: auto; } }
+/* Headings receive focus on page change (for screen readers); no visible ring for that programmatic focus */
+h1[tabindex="-1"]:focus, h1[tabindex="-1"]:focus-visible { outline: none !important; box-shadow: none !important; }
