@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, BookOpenCheck, Hospital, Phone, Stethoscope, Droplet, Contact } from 'lucide-react'
+import { ArrowRight, BookOpenCheck, Hospital, Phone, Stethoscope, Droplet, Contact, Smartphone } from 'lucide-react'
 import { EmergencyShell } from '../../layouts/EmergencyShell'
 import { NearestEmergency } from '../../components/emergency/NearestEmergency'
 import { DynIcon } from '../../components/ui/Icon'
@@ -11,6 +11,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useT } from '../../i18n/LanguageContext'
 import type { Key } from '../../i18n/strings'
 import { Bot } from 'lucide-react'
+import { USSD_CODE } from '../../config'
 
 function Snapshot() {
   const { data: hp } = useLive(myHealthProfile, ['health_profiles'])
@@ -69,6 +70,7 @@ export default function Emergency() {
         <Link to="/triage" className="flex min-h-[64px] items-center gap-3 rounded-2xl bg-white px-4 shadow-soft ring-1 ring-black/5"><Stethoscope size={20} className="text-brand-700" /><span className="flex-1 text-[15px] font-semibold">{t('em.notSure')}</span><ArrowRight size={18} className="text-slate-400" /></Link>
         <Link to="/first-aid" className="flex min-h-[64px] items-center gap-3 rounded-2xl bg-white px-4 shadow-soft ring-1 ring-black/5"><BookOpenCheck size={20} className="text-brand-700" /><span className="flex-1 text-[15px] font-semibold">{t('em.library')}</span><ArrowRight size={18} className="text-slate-400" /></Link>
         <Link to="/assistant" className="flex min-h-[64px] items-center gap-3 rounded-2xl bg-white px-4 shadow-soft ring-1 ring-black/5 sm:col-span-2"><Bot size={20} className="text-brand-700" /><span className="flex-1 text-[15px] font-semibold">{t('em.askAi')}</span><ArrowRight size={18} className="text-slate-400" /></Link>
+        <Link to="/phone" className="flex min-h-[64px] items-center gap-3 rounded-2xl bg-white px-4 shadow-soft ring-1 ring-black/5 sm:col-span-2"><Smartphone size={20} className="text-brand-700" /><span className="flex-1 text-[15px] font-semibold">No smartphone or data? Dial {USSD_CODE}</span><ArrowRight size={18} className="text-slate-400" /></Link>
       </div>
       {user?.role === 'patient' && <Snapshot />}
     </EmergencyShell>

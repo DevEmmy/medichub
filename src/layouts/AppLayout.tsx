@@ -12,6 +12,7 @@ import { OfflineBanner } from '../components/navigation/OfflineBanner'
 import { useNotificationToasts } from '../hooks/useNotificationToasts'
 import { cn } from '../utils/cn'
 import { A11yButton } from '../contexts/A11yContext'
+import { VerifyEmailBanner } from '../components/navigation/VerifyEmailBanner'
 
 export function EmergencyButton({ compact = false }: { compact?: boolean }) {
   const { enterEmergency } = useEmergency()
@@ -48,6 +49,7 @@ export function AppLayout() {
     <div className="flex min-h-[100dvh] flex-col">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:shadow-lift">Skip to content</a>
       <OfflineBanner />
+      <VerifyEmailBanner />
       <header className="sticky z-40 border-b border-line/70 bg-canvas/85 backdrop-blur-xl" style={{ top: 'env(safe-area-inset-top, 0px)' }}>
         <div className="container-app flex h-16 items-center gap-2 sm:gap-4">
           <Logo />

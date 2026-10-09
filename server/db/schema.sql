@@ -318,6 +318,17 @@ create table if not exists hospital_payouts (
   verified_at timestamptz not null
 );
 
+-- Email confirmation links sent at sign-up
+create table if not exists email_verifications (
+  token text primary key,
+  user_id text not null references users(id) on delete cascade,
+  expires_at timestamptz not null,
+  used boolean not null default false
+);
+alter table users add column if not exists email_verified_at timestamptz;
+alter table users add column if not exists via_phone boolean;
+alter table bookings add column if not exists channel text;
+
 -- People at the hospital who get booking emails (no login needed)
 create table if not exists hospital_team (
   id text primary key,

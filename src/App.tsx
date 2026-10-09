@@ -57,6 +57,8 @@ const PaymentVerify = lazy(() => import('./pages/payments/PaymentVerify'))
 const TestCheckout = lazy(() => import('./pages/payments/TestCheckout'))
 const HospitalPayments = lazy(() => import('./pages/hospital/Payments'))
 const HospitalTeam = lazy(() => import('./pages/hospital/Team'))
+const VerifyEmail = lazy(() => import('./pages/public/VerifyEmail'))
+const PhoneAccess = lazy(() => import('./pages/public/PhoneAccess'))
 
 const AdminReview = lazy(() => import('./pages/admin/Review'))
 
@@ -83,6 +85,7 @@ export default function App() {
                     <Route path="/signup" element={<Signup />} />
                     <Route path="/forgot-password" element={<ForgotPassword />} />
                     <Route path="/reset-password/:token" element={<ResetPassword />} />
+                    <Route path="/verify-email/:token" element={<VerifyEmail />} />
                     <Route path="/emergency" element={<Emergency />} />
                     <Route path="/emergency/:slug" element={<FirstAidGuide />} />
                     <Route path="/hospital/onboarding" element={<RequireRole roles={['hospital']}><Onboarding /></RequireRole>} />
@@ -91,6 +94,7 @@ export default function App() {
                       <Route path="/find" element={<FindCare />} />
                       <Route path="/hospitals/:id" element={<HospitalProfile />} />
                       <Route path="/first-aid" element={<FirstAidLibrary />} />
+                      <Route path="/phone" element={<PhoneAccess />} />
                       <Route path="/first-aid/:slug" element={<FirstAidGuide embedded />} />
                       <Route path="/triage" element={<Triage />} />
                       <Route path="/wellness" element={<Wellness />} />

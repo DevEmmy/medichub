@@ -6,7 +6,7 @@ const axe = readFileSync('node_modules/axe-core/axe.min.js', 'utf8')
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' })
 const ctx = await b.newContext({ viewport: { width: 390, height: 844 } })
 const p = await ctx.newPage()
-const pages = [['landing', ''], ['find', '#/find'], ['emergency', '#/emergency'], ['guide', '#/emergency/severe-bleeding'], ['first-aid', '#/first-aid'], ['assistant', '#/assistant'], ['hospital-profile', '#/hospitals/h_lagooncrest'], ['login', '#/login'], ['signup', '#/signup'], ['triage', '#/triage'], ['wellness', '#/wellness']]
+const pages = [['landing', ''], ['find', '#/find'], ['emergency', '#/emergency'], ['guide', '#/emergency/severe-bleeding'], ['first-aid', '#/first-aid'], ['assistant', '#/assistant'], ['hospital-profile', '#/hospitals/h_lagooncrest'], ['login', '#/login'], ['signup', '#/signup'], ['triage', '#/triage'], ['wellness', '#/wellness'], ['phone', '#/phone'], ['verify', '#/verify-email/bad']]
 const login = async (role) => { await p.goto(BASE + '#/login'); await p.getByRole('button', { name: new RegExp(`^${role}$`) }).click(); await p.waitForTimeout(1500) }
 let total = 0
 const audit = async (name) => {

@@ -18,7 +18,8 @@ import { Database } from './db'
 import { visibleData } from './policy'
 import { db, emptyTables, type TableName } from '../src/lib/store'
 import { registry } from '../src/lib/rpc'
-import { AppError, mailer, payments, sessionRuntime } from '../src/services/core'
+import { AppError, mailer, payments, sessionRuntime, smsGateway } from '../src/services/core'
+import { handleSms, handleUssd } from '../src/services/phone'
 import { hashPasswordStrong } from '../src/lib/ids'
 import { buildPublicDirectory, buildSeed, ensureSlots } from '../src/data/seed'
 import { startReminderScheduler } from '../src/services/reminders'
@@ -39,7 +40,7 @@ const PORT = Number(process.env.PORT ?? 8787)
 const SESSION_DAYS = 30
 const STATIC_DIR = process.env.STATIC_DIR ?? join(process.cwd(), 'dist')
 const ORIGINS = (process.env.ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean)
-const PUBLIC_RPCS = new Set(['auth.signIn', 'auth.signUp', 'auth.requestPasswordReset', 'auth.resetPassword', 'bookings.verifyPass', 'payments.confirmPayment'])
+const PUBLIC_RPCS = new Set(['auth.signIn', 'auth.signUp', 'auth.requestPasswordReset', 'auth.resetPassword', 'auth.verifyEmail', 'bookings.verifyPass', 'payments.confirmPayment'])
 
 interface Ctx { session: Session | null; sessionChanged: boolean; changed: Set<TableName> }
 const als = new AsyncLocalStorage<Ctx>()
@@ -142,6 +143,21 @@ async function handleRpc(req: IncomingMessage, res: ServerResponse, name: string
  * Providers: ANTHROPIC_API_KEY (Claude), or any OpenAI-compatible API via AI_API_KEY + AI_BASE_URL + AI_MODEL
  * (Groq, OpenRouter, OpenAI, Together…). Keys stay on the server.
  */
+/** Reads a form (Africa's Talking posts application/x-www-form-urlencoded) or JSON body as plain fields. */
+async function fields(req: IncomingMessage): Promise<Record<string, string>> {
+  const chunks: Buffer[] = []; let size = 0
+  for await (const c of req) { size += (c as Buffer).length; if (size > 64 * 1024) throw new AppError('too_large', 'Too large.'); chunks.push(c as Buffer) }
+  const raw = Buffer.concat(chunks).toString('utf8')
+  if ((req.headers['content-type'] ?? '').includes('json')) { try { return JSON.parse(raw || '{}') } catch { return {} } }
+  return Object.fromEntries(new URLSearchParams(raw))
+}
+/** Optional shared secret on the phone webhooks: set PHONE_WEBHOOK_KEY and add ?key=… to the callback URLs. */
+const phoneKeyOk = (url: URL) => !process.env.PHONE_WEBHOOK_KEY || url.searchParams.get('key') === process.env.PHONE_WEBHOOK_KEY
+const sendSmsSafe = (to: string, message: string) => {
+  if (smsGateway.enabled) smsGateway.send(to, message).catch((e) => console.error('[sms] send failed', e))
+  else console.log(`[sms] (not configured) to ${to}: ${message.slice(0, 120)}`)
+}
+
 async function handleAsk(req: IncomingMessage, res: ServerResponse) {
   const anthropic = process.env.ANTHROPIC_API_KEY
   const compatKey = process.env.AI_API_KEY
@@ -287,6 +303,29 @@ const server = createServer(async (req, res) => {
       return send(res, 200, { ok: true })
     }
     if (url.pathname === '/api/ask' && req.method === 'POST') return await handleAsk(req, res)
+    if (url.pathname === '/api/ussd' && req.method === 'POST') {
+      if (!phoneKeyOk(url)) return send(res, 403, { error: { code: 'forbidden', message: 'Bad key' } })
+      const f = await fields(req)
+      const ip = String(req.headers['x-forwarded-for'] ?? req.socket.remoteAddress ?? '').split(',')[0].trim()
+      if (limited(`${ip}:ussd`, 600)) { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end('END Busy. Try again shortly.') }
+      const ctx: Ctx = { session: null, sessionChanged: false, changed: new Set() }
+      const r = await als.run(ctx, () => handleUssd({ phone: f.phoneNumber ?? f.phone ?? '', text: f.text ?? '' })).catch((e) => { console.error('[ussd]', e); return { reply: 'END Sorry, something went wrong. Please try again.', sms: [] as string[] } })
+      await database.flush()
+      for (const m of r.sms) sendSmsSafe(f.phoneNumber ?? f.phone ?? '', m)
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end(r.reply)
+    }
+    if (url.pathname === '/api/sms/incoming' && req.method === 'POST') {
+      if (!phoneKeyOk(url)) return send(res, 403, { error: { code: 'forbidden', message: 'Bad key' } })
+      const f = await fields(req)
+      const from = f.from ?? f.phone ?? ''
+      if (!from) return send(res, 400, { error: { code: 'bad_request', message: 'Missing sender' } })
+      if (limited(`${from}:sms`, 30)) return send(res, 200, { ok: true })
+      const ctx: Ctx = { session: null, sessionChanged: false, changed: new Set() }
+      const reply = await als.run(ctx, () => handleSms({ phone: from, text: f.text ?? '' })).catch((e) => { console.error('[sms in]', e); return 'Medic Hub: sorry, something went wrong. Please try again.' })
+      await database.flush()
+      sendSmsSafe(from, reply)
+      return send(res, 200, { ok: true, reply: process.env.NODE_ENV === 'production' ? undefined : reply })
+    }
     if (url.pathname === '/api/paystack/webhook' && req.method === 'POST') {
       const chunks: Buffer[] = []; for await (const c of req) chunks.push(c as Buffer)
       const raw = Buffer.concat(chunks)
@@ -333,7 +372,7 @@ async function main() {
   if (adminEmail && !db.select('users').some((u) => u.email === adminEmail)) {
     if (!process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD.length < 10) throw new Error('Set ADMIN_PASSWORD (10+ characters) to create the reviewer account.')
     const passwordHash = await hashPasswordStrong(process.env.ADMIN_PASSWORD)
-    db.write(['users'], (d) => { d.users.push({ id: 'u_admin_' + randomBytes(5).toString('hex'), email: adminEmail, passwordHash, role: 'admin', name: process.env.ADMIN_NAME ?? 'Medic Hub Reviewer', createdAt: new Date().toISOString() }) })
+    db.write(['users'], (d) => { d.users.push({ id: 'u_admin_' + randomBytes(5).toString('hex'), email: adminEmail, passwordHash, role: 'admin', name: process.env.ADMIN_NAME ?? 'Medic Hub Reviewer', emailVerifiedAt: new Date().toISOString(), createdAt: new Date().toISOString() }) })
     console.log(`[boot] created reviewer account ${adminEmail}`)
   }
 
@@ -362,6 +401,17 @@ async function main() {
       if (!r.ok) throw new Error(`email failed: ${r.status} ${await r.text().catch(() => '')}`)
     }
   }
+  // SMS: Africa's Talking (works on all Nigerian networks). AT_USERNAME "sandbox" uses their free test simulator.
+  if (process.env.AT_USERNAME && process.env.AT_API_KEY) {
+    const base = process.env.AT_BASE_URL ?? (process.env.AT_USERNAME === 'sandbox' ? 'https://api.sandbox.africastalking.com' : 'https://api.africastalking.com')
+    smsGateway.enabled = true
+    smsGateway.send = async (to, message) => {
+      const form = new URLSearchParams({ username: process.env.AT_USERNAME!, to, message })
+      if (process.env.AT_SENDER_ID) form.set('from', process.env.AT_SENDER_ID)
+      const r = await fetch(`${base}/version1/messaging`, { method: 'POST', headers: { apiKey: process.env.AT_API_KEY!, Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: form })
+      if (!r.ok) throw new Error(`sms failed: ${r.status} ${await r.text().catch(() => '')}`)
+    }
+  }
   if (process.env.PAYSTACK_SECRET_KEY) {
     payments.gateway = paystackGateway()
     payments.callbackUrl = (process.env.APP_URL ?? '').replace(/\/?$/, '/') + '?paystack=1'
@@ -369,7 +419,7 @@ async function main() {
   }
   await database.flush()
   startReminderScheduler()
-  server.listen(PORT, () => console.log(`[boot] Medic Hub on :${PORT} · database: ${database.kind} · email: ${mailer.enabled ? 'on' : 'off'} · AI: ${process.env.ANTHROPIC_API_KEY || process.env.AI_API_KEY ? 'on' : 'off'} · payments: ${payments.gateway.mode} · ${db.select('hospitals').length} hospitals`))
+  server.listen(PORT, () => console.log(`[boot] Medic Hub on :${PORT} · database: ${database.kind} · email: ${mailer.enabled ? 'on' : 'off'} · AI: ${process.env.ANTHROPIC_API_KEY || process.env.AI_API_KEY ? 'on' : 'off'} · sms: ${smsGateway.enabled ? 'on' : 'off'} · payments: ${payments.gateway.mode} · ${db.select('hospitals').length} hospitals`))
 }
 
 const shutdown = async () => { await database.flush().catch(() => {}); await database.close().catch(() => {}); process.exit(0) }

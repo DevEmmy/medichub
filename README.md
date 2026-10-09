@@ -17,11 +17,12 @@ Team Medic Hub · medichubnigeria@gmail.com · 07042744090
 
 ## Launch checklist
 
-1. **Database** – create a free PostgreSQL database (e.g. [Neon](https://neon.tech)) and copy its connection URL.
+1. **Database** – create a free PostgreSQL database and copy its connection URL. **Supabase** works: New project → Connect → *Session pooler* URI (`postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres`). [Neon](https://neon.tech) works the same way.
 2. **Server** – on [Render](https://render.com): New › Blueprint › this repo (uses `render.yaml` + `Dockerfile`). Fill in:
    - `DATABASE_URL` – from step 1 (tables are created automatically on first start)
    - `ADMIN_EMAIL`, `ADMIN_PASSWORD` – the first reviewer account (reviewers approve hospitals; there is no public sign-up for them)
-   - `APP_URL` – the public address, e.g. `https://medichub.onrender.com/`
+   - `APP_URL` – where people open the app; links in emails point here. Use `https://devemmy.github.io/medichub/` if the website stays on GitHub Pages, else the Render address.
+   - `ALLOWED_ORIGINS` – `https://devemmy.github.io` when the website is on GitHub Pages.
    - Email (booking alerts to hospital staff, patient confirmations, password resets, status reminders, weekly reports). Set one of:
      - **Gmail**: `SMTP_USER` (your Gmail address) + `SMTP_PASS` (a Google *App password*: Google Account → Security → 2-Step Verification → App passwords). Optional `SMTP_HOST`/`SMTP_PORT` for other providers. Gmail allows about 500 emails a day.
      - **Resend**: `RESEND_API_KEY` + `MAIL_FROM` ([Resend](https://resend.com)), better for high volume.
@@ -31,11 +32,23 @@ Team Medic Hub · medichubnigeria@gmail.com · 07042744090
      - `ANTHROPIC_API_KEY` – Claude (optional `MEDIC_AI_MODEL`, default `claude-sonnet-4-5`)
      - `AI_API_KEY` + `AI_BASE_URL` + `AI_MODEL` – any OpenAI-compatible API. A free [Groq](https://console.groq.com) key works with the defaults (`https://api.groq.com/openai/v1`, `llama-3.3-70b-versatile`).
      Without a key the app falls back to a free public AI (no Health Vault data is sent to it), then to the built-in first-aid guides.
-3. **Domain** – add your domain in Render (Settings › Custom domains).
-4. **First hospital** – a hospital signs up → completes the 7-step setup (details, location, services, registration, documents, administrator) → you sign in as reviewer, open their documents and verify → they appear to patients. Each hospital uploads its own photos and sets its own fees and live status.
-5. **Print the QR poster** – Hospital portal › Entrance QR poster.
+   - Phones without internet (USSD menu + SMS) through [Africa's Talking](https://africastalking.com): `AT_USERNAME`, `AT_API_KEY`, optional `AT_SENDER_ID`, optional `PHONE_WEBHOOK_KEY`. In their dashboard set the USSD callback to `https://<server>/api/ussd` and the incoming SMS callback to `https://<server>/api/sms/incoming` (add `?key=<PHONE_WEBHOOK_KEY>` if you set one). With `AT_USERNAME=sandbox` you can test free in their phone simulator before buying a shortcode.
+3. **Point the GitHub Pages site at the server** – GitHub repo › Settings › Secrets and variables › Actions › *Variables* › New variable `MEDICHUB_API_URL` = your server address (e.g. `https://medichub.onrender.com`). The next push rebuilds the site so sign-ups are saved in the database, emails go out and logins work from any device. Optional `MEDICHUB_USSD_CODE` and `MEDICHUB_SMS_NUMBER` show your real shortcode and number.
+4. **Domain** – add your domain in Render (Settings › Custom domains).
+5. **First hospital** – a hospital signs up → completes the 7-step setup (details, location, services, registration, documents, administrator) → you sign in as reviewer, open their documents and verify → they appear to patients. Each hospital uploads its own photos and sets its own fees and live status.
+6. **Print the QR poster** – Hospital portal › Entrance QR poster.
 
 Any Node 20+ host works the same way (`npm ci && npm run build:prod && npm start`). To serve the web app from somewhere else (e.g. GitHub Pages), build it with `VITE_BACKEND=1 VITE_API_URL=https://your-server npm run build:app` and set `ALLOWED_ORIGINS` on the server.
+
+Render's free plan works for a pilot, but the server sleeps after 15 minutes without visitors (the first request then takes about a minute, and reminders pause while asleep). The Starter plan keeps it awake.
+
+## Account emails
+
+Signing up sends a welcome email with a **Confirm my email** button (valid 48 hours); until confirmed, a banner offers to resend it. **Forgot password** emails a single-use link valid 30 minutes. Both need email set up on the server (Gmail or Resend). In the browser-only demo there is no email, so the demo shows the link on screen instead, and accounts are kept in that browser only.
+
+## Phones without internet (USSD and SMS)
+
+Dial the Medic Hub code for a menu: 1 open emergency units by state (numbers also sent by SMS), 2 book (state → hospital → service → the next free times with places left → name for first-time callers → confirm; booking reference by SMS, fee paid at the hospital), 3 my bookings, 4 cancel, 5 first aid (steps by SMS). Or text `HELP`, `ER <state>`, `HOSPITALS <state>`, `SLOTS <code>`, `BOOK <n> <name>`, `MY`, `STATUS <ref>`, `CANCEL <ref>`, `AID <topic>`. A phone number only ever sees and changes its own bookings. Hospitals see these bookings like any other, marked “by USSD” or “by SMS”, and their staff get the usual emails. Try it in the app at `#/phone`.
 
 ## Architecture
 

@@ -57,6 +57,7 @@ export default function Login() {
             </button>
           ))}
         </div>
+        <p className="mt-3 text-center text-[12.5px] text-slate-500">This is the demo: accounts you create are kept in this browser only.</p>
       </div>}
     </AuthShell>
   )

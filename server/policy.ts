@@ -37,6 +37,7 @@ export function visibleData(userId: string | null, only?: TableName[]): Partial<
     hospital_announcements: byHosp(all.hospital_announcements),
     hospital_documents: all.hospital_documents.filter((d) => role === 'admin' || staffOf.has(d.hospitalId)),
     password_resets: [],
+    email_verifications: [],
     hospital_reviews: byHosp(all.hospital_reviews),
     payments: u ? all.payments.filter((p) => p.patientId === u.id || staffOf.has(p.hospitalId)) : [],
     hospital_payouts: all.hospital_payouts.filter((p) => role === 'admin' || staffOf.has(p.hospitalId)),

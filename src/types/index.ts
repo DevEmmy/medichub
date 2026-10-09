@@ -7,6 +7,10 @@ export interface User {
   role: Role
   name: string
   phone?: string
+  /** Set when the user clicked the link in their confirmation email. */
+  emailVerifiedAt?: string
+  /** Account created from a phone (USSD/SMS) rather than the website. */
+  viaPhone?: boolean
   createdAt: string
 }
 export type PublicUser = Omit<User, 'passwordHash'>
@@ -119,6 +123,8 @@ export interface EmailLog {
   status: 'queued' | 'sent' | 'failed' | 'simulated'; error?: string; createdAt: string
 }
 
+export interface EmailVerification { token: string; userId: string; expiresAt: string; used: boolean }
+
 export interface Doctor { id: string; hospitalId: string; name: string; specialty: string; departmentId?: string; available: boolean }
 
 export type EmergencyLevel = 'open' | 'busy' | 'closed'
@@ -180,6 +186,8 @@ export interface Booking {
   paidAt?: string
   /** No online payment: the patient pays at the hospital */
   payAtHospital?: boolean
+  /** How the booking was made: website, USSD menu or SMS */
+  channel?: 'web' | 'ussd' | 'sms'
 }
 
 export type PaymentStatus = 'unpaid' | 'paid' | 'refunded' | 'failed'

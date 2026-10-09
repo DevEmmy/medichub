@@ -1,7 +1,7 @@
 import { rpc } from '../lib/rpc'
 import { db } from '../lib/store'
 import { bookingRef, secureToken, uid } from '../lib/ids'
-import type { Booking, BookingStatus } from '../types'
+import type { Booking, BookingStatus, User } from '../types'
 import { AppError, ENUMS, currentUser, latency, oneOf, requireHospitalStaff, requireRole, text } from './core'
 import { notify } from './notifications'
 import { refundPayment, requiresPayment } from './payments'
@@ -94,6 +94,14 @@ export const createBooking = rpc('bookings.createBooking', async function create
   const u = requireRole('patient')
   text(input?.slotId, 100, 'a time', true); text(input.hospitalId, 100, 'a hospital', true); text(input.serviceId, 100, 'a service', true); text(input.reason, 500, 'a reason'); text(input.phone, 40, 'a phone number')
   await latency(650)
+  return enrich(placeBooking(u, input, 'web'))
+})
+
+/**
+ * Books a slot for a patient. Shared by the website, the USSD menu and SMS.
+ * Phone channels never take online payment: any fee is paid at the hospital.
+ */
+export function placeBooking(u: User, input: { hospitalId: string; serviceId: string; slotId: string; reason?: string; phone?: string }, channel: 'web' | 'ussd' | 'sms'): Booking {
   const slot = db.select('hospital_slots').find((s) => s.id === input.slotId && s.hospitalId === input.hospitalId && s.serviceId === input.serviceId)
   if (!slot) throw new AppError('not_found', 'That time is no longer offered. Pick another time.')
   if (slot.date < today() || (slot.date === today() && slot.time <= nowHHMM())) throw new AppError('past', 'That time has already passed. Pick a later time.')
@@ -105,38 +113,44 @@ export const createBooking = rpc('bookings.createBooking', async function create
   let ref = bookingRef()
   while (db.select('bookings').some((b) => b.ref === ref)) ref = bookingRef()
   const now = new Date().toISOString()
-  const svc0 = db.select('hospital_services').find((s) => s.id === slot.serviceId)
-  const fee = svc0?.fee && svc0.fee > 0 ? svc0.fee : undefined
-  const mustPay = requiresPayment(h.id, fee)
+  const svc = db.select('hospital_services').find((s) => s.id === slot.serviceId)
+  const fee = svc?.fee && svc.fee > 0 ? svc.fee : undefined
+  const mustPay = channel === 'web' && requiresPayment(h.id, fee)
   const status: BookingStatus = mustPay ? 'awaiting_payment' : h.autoConfirm ? 'confirmed' : 'pending'
   const booking: Booking = { id: uid('bk_'), ref, token: secureToken(), patientId: u.id, patientName: u.name, patientPhone: input.phone || u.phone, hospitalId: h.id, serviceId: slot.serviceId, slotId: slot.id, date: slot.date, time: slot.time, reason: input.reason?.trim() || undefined, status, createdAt: now, updatedAt: now,
+    ...(channel !== 'web' ? { channel } : {}),
     ...(fee ? { amount: fee, paymentStatus: 'unpaid' as const, payAtHospital: !mustPay } : {}) }
   db.write(['bookings', 'booking_events', 'hospital_slots'], (d) => {
     const s = d.hospital_slots.find((x) => x.id === slot.id)!
     if (s.booked >= s.capacity) throw new AppError('full', 'Someone just took the last place at that time. Pick another time.')
     s.booked++
     d.bookings.push(booking)
-    d.booking_events.push({ id: uid('be_'), bookingId: booking.id, status, at: now, by: 'patient' })
+    d.booking_events.push({ id: uid('be_'), bookingId: booking.id, status, at: now, by: 'patient', note: channel === 'web' ? undefined : `Booked by ${channel === 'ussd' ? 'USSD' : 'SMS'} from ${booking.patientPhone ?? 'a phone'}` })
   })
-  const svc = svc0
-  if (mustPay) return enrich(booking) // confirmations go out once payment is verified
+  if (mustPay) return booking // confirmations go out once payment is verified
   notify(u.id, 'booking', status === 'confirmed' ? 'Booking confirmed' : 'Booking requested', `${svc?.name} at ${h.name}, ${fmtDate(slot.date)} at ${fmtTime(slot.time)}. Ref ${ref}.`, `/app/bookings/${booking.id}`)
-  db.select('hospital_staff').filter((s) => s.hospitalId === h.id).forEach((s) => notify(s.userId, 'booking', 'New booking', `${u.name} booked ${svc?.name} for ${fmtDate(slot.date)} at ${fmtTime(slot.time)}.`, '/hospital/bookings'))
+  db.select('hospital_staff').filter((s) => s.hospitalId === h.id).forEach((s) => notify(s.userId, 'booking', channel === 'web' ? 'New booking' : `New ${channel.toUpperCase()} booking`, `${u.name} booked ${svc?.name} for ${fmtDate(slot.date)} at ${fmtTime(slot.time)}${channel === 'web' ? '' : ` by ${channel === 'ussd' ? 'USSD' : 'SMS'}`}.`, '/hospital/bookings'))
   void alertTeam(booking, 'new')
-  void emailPatient(booking, status === 'confirmed' ? 'confirmed' : 'requested')
-  return enrich(booking)
-})
+  if (!u.viaPhone) void emailPatient(booking, status === 'confirmed' ? 'confirmed' : 'requested')
+  return booking
+}
+
+/** Patient-side cancellation, shared by the website and phone channels. */
+export async function cancelAsPatient(u: User, id: string, by = 'the patient') {
+  const b = db.select('bookings').find((x) => x.id === id && x.patientId === u.id)
+  if (!b) throw new AppError('not_found', 'Booking not found.')
+  if (!['awaiting_payment', 'pending', 'confirmed'].includes(b.status)) throw new AppError('invalid', 'This booking can no longer be cancelled here. Call the hospital.')
+  transition(b, 'cancelled', 'patient', `Cancelled by ${by}`)
+  if (b.paymentStatus === 'paid' && b.paymentRef) await refundPayment(b.paymentRef, 'You cancelled the appointment.')
+  db.select('hospital_staff').filter((s) => s.hospitalId === b.hospitalId).forEach((s) => notify(s.userId, 'booking', 'Booking cancelled', `${b.patientName} cancelled ${b.ref}.`, '/hospital/bookings'))
+  void alertTeam(b, 'cancelled', { by })
+  return b
+}
 
 export const cancelMyBooking = rpc('bookings.cancelMyBooking', async function cancelMyBooking(id: string) {
   const u = requireRole('patient')
   await latency(400)
-  const b = db.select('bookings').find((x) => x.id === id && x.patientId === u.id)
-  if (!b) throw new AppError('not_found', 'Booking not found.')
-  if (!['awaiting_payment', 'pending', 'confirmed'].includes(b.status)) throw new AppError('invalid', 'This booking can no longer be cancelled here. Call the hospital.')
-  transition(b, 'cancelled', 'patient', 'Cancelled by patient')
-  if (b.paymentStatus === 'paid' && b.paymentRef) await refundPayment(b.paymentRef, 'You cancelled the appointment.')
-  db.select('hospital_staff').filter((s) => s.hospitalId === b.hospitalId).forEach((s) => notify(s.userId, 'booking', 'Booking cancelled', `${b.patientName} cancelled ${b.ref}.`, '/hospital/bookings'))
-  void alertTeam(b, 'cancelled', { by: 'the patient' })
+  await cancelAsPatient(u, id)
 })
 
 function transition(b: Booking, status: BookingStatus, by: 'patient' | 'hospital', note?: string) {

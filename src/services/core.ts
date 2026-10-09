@@ -45,6 +45,13 @@ export const mailer = {
   send: async (_m: OutgoingMail): Promise<void> => {},
 }
 
+/** Outgoing SMS. Off in the browser; the server switches it on when an SMS provider (Africa's Talking) is configured. */
+export const smsGateway = {
+  enabled: false,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  send: async (_to: string, _message: string): Promise<void> => {},
+}
+
 /** Payment gateway. Off by default; the browser demo installs a test gateway and the server installs Paystack. */
 export interface PayGateway {
   mode: 'off' | 'test' | 'live'

@@ -139,7 +139,7 @@ export async function emailPatient(b: Booking, kind: 'confirmed' | 'requested' |
   try {
     const u = db.select('users').find((x) => x.id === b.patientId)
     const h = db.select('hospitals').find((x) => x.id === b.hospitalId)
-    if (!u?.email || !h || u.email.endsWith('.demo')) return
+    if (!u?.email || !h || u.email.endsWith('.demo') || u.viaPhone) return
     const svc = db.select('hospital_services').find((s) => s.id === b.serviceId)
     const heading = { confirmed: 'Your appointment is confirmed', requested: 'Booking request received', paid: 'Payment received, you are booked', cancelled: 'Your appointment was cancelled', rescheduled: 'Your appointment has a new time' }[kind]
     await deliver(b.hospitalId, {

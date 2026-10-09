@@ -9,3 +9,7 @@ export const BACKEND = env.VITE_BACKEND === '1'
 export const API_URL = (env.VITE_API_URL ?? '').replace(/\/$/, '')
 /** Demo affordances (demo accounts, sample codes, reset button) only exist in the standalone demo. */
 export const DEMO = !BACKEND
+/** Phone access (USSD menu and SMS). Real shortcodes are assigned by the networks; these show until then. */
+export const USSD_CODE = (env.VITE_USSD_CODE as string | undefined) || '*347*633#'
+export const SMS_NUMBER = (env.VITE_SMS_NUMBER as string | undefined) || '32112'
+export const PHONE_LIVE = env.VITE_PHONE_LIVE === '1'

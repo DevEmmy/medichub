@@ -4,7 +4,7 @@ services:
   - type: web
     name: medichub
     runtime: docker
-    plan: starter
+    plan: free             # sleeps when idle; switch to starter to keep it awake
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
@@ -14,7 +14,9 @@ services:
       - key: ADMIN_PASSWORD
         sync: false          # 10+ characters; change it after first sign-in
       - key: APP_URL
-        sync: false          # e.g. https://medichub.onrender.com/
+        sync: false          # where people open the app, e.g. https://devemmy.github.io/medichub/
+      - key: ALLOWED_ORIGINS
+        sync: false          # https://devemmy.github.io when the website stays on GitHub Pages
       - key: SMTP_USER
         sync: false          # Gmail address for booking emails (optional)
       - key: SMTP_PASS
@@ -31,3 +33,11 @@ services:
         sync: false          # Medic AI answers (optional)
       - key: AI_API_KEY
         sync: false          # or a free Groq key instead of Anthropic (optional)
+      - key: AT_USERNAME
+        sync: false          # Africa's Talking username ("sandbox" to test) for USSD + SMS (optional)
+      - key: AT_API_KEY
+        sync: false
+      - key: AT_SENDER_ID
+        sync: false          # optional registered sender name
+      - key: PHONE_WEBHOOK_KEY
+        sync: false          # optional secret added as ?key= to the USSD/SMS callback URLs

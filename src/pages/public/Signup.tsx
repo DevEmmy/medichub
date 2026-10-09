@@ -10,6 +10,7 @@ import { useToast } from '../../contexts/ToastContext'
 import { validatePassword } from '../../services/auth'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { cn } from '../../utils/cn'
+import { rememberDemoVerify } from '../../components/navigation/VerifyEmailBanner'
 
 type R = 'patient' | 'hospital'
 
@@ -36,8 +37,9 @@ export default function Signup() {
     if (Object.keys(errs).length) return
     setLoading(true)
     try {
-      await signUp({ ...form, role: role! })
-      toast('success', 'Account created', role === 'hospital' ? 'Next, tell us about your facility.' : 'Welcome to Medic Hub.')
+      const u = await signUp({ ...form, role: role! })
+      rememberDemoVerify(u.demoVerifyToken)
+      toast('success', 'Account created', `We've emailed a confirmation link to ${u.email}. ${role === 'hospital' ? 'Next, tell us about your facility.' : 'Welcome to Medic Hub.'}`)
       nav(role === 'hospital' ? '/hospital/onboarding' : '/app', { replace: true })
     } catch (err) { setError((err as Error).message) } finally { setLoading(false) }
   }

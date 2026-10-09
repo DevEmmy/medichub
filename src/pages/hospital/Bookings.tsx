@@ -103,7 +103,7 @@ export default function HospitalBookings() {
                 <AnimatePresence initial={false}>
                   {list.map((b) => (
                     <motion.tr key={b.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="hover:bg-canvas/60">
-                      <td className="px-5 py-3"><p className="font-semibold text-ink">{b.patientName}</p>{b.reason && <p className="max-w-[220px] truncate text-[12px] text-slate-500" title={b.reason}>{b.reason}</p>}</td>
+                      <td className="px-5 py-3"><p className="font-semibold text-ink">{b.patientName}{b.channel && b.channel !== 'web' && <span className="ml-1.5 rounded-full bg-lime-200 px-2 py-0.5 align-middle text-[11px] font-bold text-ink">by {b.channel.toUpperCase()}</span>}</p>{b.reason && <p className="max-w-[220px] truncate text-[12px] text-slate-500" title={b.reason}>{b.reason}</p>}</td>
                       <td className="px-3 py-3 font-mono text-[13px] text-slate-700">{b.ref}</td>
                       <td className="px-3 py-3 text-slate-700">{b.serviceName}</td>
                       <td className="px-3 py-3 whitespace-nowrap text-slate-700">{b.date === t ? 'Today' : fmtDate(b.date)}</td>
@@ -119,7 +119,7 @@ export default function HospitalBookings() {
           <ul className="space-y-3 md:hidden">
             {list.map((b) => (
               <li key={b.id} className="rounded-2xl bg-white p-4 ring-1 ring-line">
-                <div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="font-semibold text-ink">{b.patientName}</p><p className="text-[12.5px] text-slate-500"><span className="font-mono">{b.ref}</span> · {b.serviceName}</p></div><BookingStatusPill status={b.status} size="sm" /></div>
+                <div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="font-semibold text-ink">{b.patientName}{b.channel && b.channel !== 'web' && <span className="ml-1.5 rounded-full bg-lime-200 px-2 py-0.5 align-middle text-[11px] font-bold text-ink">by {b.channel.toUpperCase()}</span>}</p><p className="text-[12.5px] text-slate-500"><span className="font-mono">{b.ref}</span> · {b.serviceName}</p></div><BookingStatusPill status={b.status} size="sm" /></div>
                 <div className="mt-3 flex items-center justify-between gap-2"><p className="flex items-center gap-1.5 text-[13.5px] font-semibold text-ink"><CalendarClock size={15} className="text-slate-400" />{b.date === t ? 'Today' : fmtDate(b.date)}, {fmtTime(b.time)}</p><Actions b={b} onReschedule={() => setResched(b)} /></div>
               </li>
             ))}

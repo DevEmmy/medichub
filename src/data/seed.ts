@@ -148,10 +148,10 @@ export function buildSeed(): Tables {
     users: [], patient_profiles: [], hospitals: [], hospital_staff: [], hospital_departments: [], hospital_services: [],
     hospital_doctors: [], hospital_status: [], hospital_capacity: [], hospital_slots: [], bookings: [], booking_events: [],
     health_profiles: [], health_events: [], emergency_contacts: [], notifications: [], hospital_announcements: [],
-    hospital_documents: [], password_resets: [], hospital_reviews: [], payments: [], hospital_payouts: [], hospital_team: [], email_log: [],
+    hospital_documents: [], password_resets: [], hospital_reviews: [], payments: [], hospital_payouts: [], hospital_team: [], email_log: [], email_verifications: [],
   }
   const plain = 'plain:' + DEMO_PASSWORD
-  const mkUser = (id: string, email: string, role: User['role'], name: string, phone?: string): User => ({ id, email, passwordHash: plain, role, name, phone, createdAt: now })
+  const mkUser = (id: string, email: string, role: User['role'], name: string, phone?: string): User => ({ id, email, passwordHash: plain, role, name, phone, emailVerifiedAt: now, createdAt: now })
 
   t.users.push(mkUser('u_amaka', DEMO_ACCOUNTS.patient.email, 'patient', 'Amaka Okafor', '+234 803 555 0142'))
   t.users.push(mkUser('u_admin', DEMO_ACCOUNTS.admin.email, 'admin', 'Kemi Balogun'))
@@ -352,6 +352,6 @@ export function buildPublicDirectory(): Tables {
     hospital_doctors: [], hospital_status: keep(t.hospital_status).map((s) => ({ ...s, updatedAt: old })),
     hospital_capacity: keep(t.hospital_capacity).map((c) => ({ ...c, updatedAt: old })), hospital_slots: [],
     bookings: [], booking_events: [], health_profiles: [], health_events: [], emergency_contacts: [], notifications: [],
-    hospital_announcements: [], hospital_documents: [], password_resets: [], hospital_reviews: [], payments: [], hospital_payouts: [], hospital_team: [], email_log: [],
+    hospital_announcements: [], hospital_documents: [], password_resets: [], hospital_reviews: [], payments: [], hospital_payouts: [], hospital_team: [], email_log: [], email_verifications: [],
   }
 }
