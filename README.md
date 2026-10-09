@@ -22,7 +22,10 @@ Team Medic Hub · medichubnigeria@gmail.com · 07042744090
    - `DATABASE_URL` – from step 1 (tables are created automatically on first start)
    - `ADMIN_EMAIL`, `ADMIN_PASSWORD` – the first reviewer account (reviewers approve hospitals; there is no public sign-up for them)
    - `APP_URL` – the public address, e.g. `https://medichub.onrender.com/`
-   - `RESEND_API_KEY`, `MAIL_FROM` – email for password resets, 12-hour status reminders and weekly reports ([Resend](https://resend.com)). Without these, password reset is disabled for safety.
+   - Email (booking alerts to hospital staff, patient confirmations, password resets, status reminders, weekly reports). Set one of:
+     - **Gmail**: `SMTP_USER` (your Gmail address) + `SMTP_PASS` (a Google *App password*: Google Account → Security → 2-Step Verification → App passwords). Optional `SMTP_HOST`/`SMTP_PORT` for other providers. Gmail allows about 500 emails a day.
+     - **Resend**: `RESEND_API_KEY` + `MAIL_FROM` ([Resend](https://resend.com)), better for high volume.
+     Without email, alerts are still recorded in each hospital's Email activity, and password reset is disabled for safety.
    - `PAYSTACK_SECRET_KEY` – online booking payments. Start with your `sk_test_…` key (Paystack test cards, no real money), switch to `sk_live_…` after Paystack approves your business. In the Paystack dashboard set the **Webhook URL** to `https://<your-site>/api/paystack/webhook`. `PLATFORM_FEE_PERCENT` sets Medic Hub's share (default 0).
    - Medic AI (streams answers like ChatGPT). Set one of:
      - `ANTHROPIC_API_KEY` – Claude (optional `MEDIC_AI_MODEL`, default `claude-sonnet-4-5`)
@@ -57,6 +60,8 @@ server/db/schema.sql  one table per entity, typed columns, foreign keys, indexes
 - **QR codes**: patients' booking passes; hospitals scan them with any phone or laptop camera (or from a photo); printable entrance poster that patients scan to open the hospital's live page.
 - **Ratings**: only patients who checked in for a booked visit can rate (1–5 stars, tags, comment); hospitals reply publicly for free; "Top rated" sort.
 - **Freemium for hospitals**: Basic is free forever (listing, live status, emergency line, bookings, check-in, slots, announcements, reminders, ratings). Premium (₦25,000/month per facility, proposed; 30-day free trial) adds analytics, CSV export and automations. Paying never changes search or emergency ranking. Online billing (e.g. Paystack) is not connected yet.
+- **Hospital team alerts**: each hospital lists its staff (name, role, Gmail or work email, optional department). Every booking, payment, cancellation and reschedule emails the right people instantly; Premium adds a 7 AM daily schedule. Every email is logged in the portal.
+- **Accessibility**: read-aloud for any page with highlighting, Talk back (speaks what you tap or focus), text size, high contrast, underline links, reduce motion, screen-reader page announcements. Audited with axe-core: 0 serious WCAG 2.1 AA issues on 18 screens.
 - **Medic AI**, a full chat assistant in five languages (English, Pidgin, Yoruba, Hausa, Igbo): streaming answers, saved conversations, follow-up questions, edit and regenerate, copy, voice input and read-aloud, danger-sign detection, and links straight to hospitals you can book.
 
 ## Payments

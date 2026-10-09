@@ -5,6 +5,7 @@ import { UserMenu } from '../components/navigation/UserMenu'
 import { useAuth } from '../contexts/AuthContext'
 import { useNotificationToasts } from '../hooks/useNotificationToasts'
 import { ShieldCheck } from 'lucide-react'
+import { A11yButton } from '../contexts/A11yContext'
 
 export function AdminLayout() {
   const { user } = useAuth()
@@ -15,7 +16,7 @@ export function AdminLayout() {
         <div className="container-app flex h-16 items-center gap-3">
           <Logo to="/admin" />
           <span className="ml-1 hidden items-center gap-1.5 rounded-full bg-ink px-2.5 py-1 text-[11.5px] font-semibold text-white sm:inline-flex"><ShieldCheck size={13} /> Trust & Safety</span>
-          <div className="ml-auto flex items-center gap-2"><NotificationBell allHref="/admin" /><UserMenu links={[]} /></div>
+          <div className="ml-auto flex items-center gap-2"><A11yButton /><NotificationBell allHref="/admin" /><UserMenu links={[]} /></div>
         </div>
       </header>
       <main className="container-app py-8"><Outlet /></main>

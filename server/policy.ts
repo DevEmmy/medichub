@@ -40,6 +40,8 @@ export function visibleData(userId: string | null, only?: TableName[]): Partial<
     hospital_reviews: byHosp(all.hospital_reviews),
     payments: u ? all.payments.filter((p) => p.patientId === u.id || staffOf.has(p.hospitalId)) : [],
     hospital_payouts: all.hospital_payouts.filter((p) => role === 'admin' || staffOf.has(p.hospitalId)),
+    hospital_team: all.hospital_team.filter((m) => staffOf.has(m.hospitalId)),
+    email_log: all.email_log.filter((m) => staffOf.has(m.hospitalId)).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 300),
   }
   if (!only) return out
   // Visibility of child rows depends on these tables, so send the dependants together.

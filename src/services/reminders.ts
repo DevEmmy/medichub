@@ -8,6 +8,7 @@ import { db } from '../lib/store'
 import { notify } from './notifications'
 import { runAutomations } from './plans'
 import { expireUnpaidHolds } from './payments'
+import { runTeamDigests } from './team'
 import { mailer, requireHospitalStaff } from './core'
 import { ageLabel, hoursSince, lastUpdate, REMINDER_HOURS, STALE_HOURS } from '../utils/freshness'
 
@@ -53,7 +54,7 @@ export const confirmStatus = rpc('reminders.confirmStatus', async function confi
 let timer: ReturnType<typeof setInterval> | undefined
 export function startReminderScheduler() {
   if (timer) return
-  const tick = () => { try { runReminderSweep() } catch { /* best effort */ } try { runAutomations() } catch { /* best effort */ } try { expireUnpaidHolds() } catch { /* best effort */ } }
+  const tick = () => { try { runReminderSweep() } catch { /* best effort */ } try { runAutomations() } catch { /* best effort */ } try { expireUnpaidHolds() } catch { /* best effort */ } void runTeamDigests().catch(() => {}) }
   tick()
   timer = setInterval(tick, 60_000)
 }

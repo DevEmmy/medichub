@@ -15,6 +15,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useLive } from '../../hooks/useLive'
 import { listPublicHospitals } from '../../services/hospitals'
 import { cn } from '../../utils/cn'
+import { A11yButton } from '../../contexts/A11yContext'
 
 const SERVICES = ['Antenatal care', 'Ultrasound scan', 'Dental check-up', 'Emergency care', 'Lab tests', 'Child health', 'Blood pressure check', 'Eye clinic', 'Physiotherapy', 'Pharmacy', 'Blood bank', 'Mental health']
 const QUICK = ['Antenatal', 'Scan', 'Dentist', 'Lab test', 'Child clinic']
@@ -38,6 +39,7 @@ function Header() {
           <a href="#hospitals" className="rounded-full px-3.5 py-2 hover:bg-white/10 hover:text-white">For hospitals</a>
         </nav>
         <div className="ml-auto flex items-center gap-2">
+          <A11yButton dark />
           {user ? <Link to={homeFor(user.role, hospitalId)} className="btn btn-lime btn-sm">Open my dashboard <ArrowRight size={15} /></Link> : (
             <>
               <Link to="/login" className="btn btn-sm hidden text-white hover:bg-white/10 sm:inline-flex"><LogIn size={15} /> Sign in</Link>
@@ -199,7 +201,7 @@ function AiSection() {
               {n <= CHAT.length && n > 0 && <div className="flex w-16 gap-1 rounded-full bg-white/10 px-4 py-3">{[0, 1, 2].map((d) => <span key={d} className="h-1.5 w-1.5 animate-blink rounded-full bg-white/70" style={{ animationDelay: `${d * 0.2}s` }} />)}</div>}
             </div>
           </div>
-          <p className="mt-2 text-center text-[11.5px] text-white/40">Example conversation</p>
+          <p className="mt-2 text-center text-[11.5px] text-white/65">Example conversation</p>
         </div>
       </div>
     </section>
@@ -280,11 +282,11 @@ function Footer() {
     <footer className="bg-ink text-white">
       <div className="container-app grid gap-10 py-14 md:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
         <div><Logo light /><p className="mt-4 max-w-xs text-[14px] leading-relaxed text-white/60">The right hospital, right now. Built in Nigeria by Team Medic Hub.</p></div>
-        <div><p className="text-[13px] font-bold uppercase tracking-[0.12em] text-white/40">Patients</p><ul className="mt-3 space-y-2 text-[14px] text-white/80">{[['Find care', '/find'], ['Medic AI', '/assistant'], ['First aid', '/first-aid'], ['Check symptoms', '/triage'], ['Scan a QR code', '/scan']].map(([l, to]) => <li key={to}><Link to={to} className="hover:text-lime-300">{l}</Link></li>)}</ul></div>
-        <div><p className="text-[13px] font-bold uppercase tracking-[0.12em] text-white/40">Hospitals</p><ul className="mt-3 space-y-2 text-[14px] text-white/80">{[['Register', '/signup?role=hospital'], ['Sign in', '/login']].map(([l, to]) => <li key={to}><Link to={to} className="hover:text-lime-300">{l}</Link></li>)}</ul></div>
-        <div><p className="text-[13px] font-bold uppercase tracking-[0.12em] text-white/40">Contact</p><ul className="mt-3 space-y-2 text-[14px] text-white/80"><li className="flex items-center gap-2"><Mail size={14} /><a href="mailto:medichubnigeria@gmail.com" className="hover:text-lime-300">medichubnigeria@gmail.com</a></li><li className="flex items-center gap-2"><Phone size={14} /><a href="tel:+2347042744090" className="hover:text-lime-300">0704 274 4090</a></li></ul></div>
+        <div><p className="text-[13px] font-bold uppercase tracking-[0.12em] text-white/65">Patients</p><ul className="mt-3 space-y-2 text-[14px] text-white/80">{[['Find care', '/find'], ['Medic AI', '/assistant'], ['First aid', '/first-aid'], ['Check symptoms', '/triage'], ['Scan a QR code', '/scan']].map(([l, to]) => <li key={to}><Link to={to} className="hover:text-lime-300">{l}</Link></li>)}</ul></div>
+        <div><p className="text-[13px] font-bold uppercase tracking-[0.12em] text-white/65">Hospitals</p><ul className="mt-3 space-y-2 text-[14px] text-white/80">{[['Register', '/signup?role=hospital'], ['Sign in', '/login']].map(([l, to]) => <li key={to}><Link to={to} className="hover:text-lime-300">{l}</Link></li>)}</ul></div>
+        <div><p className="text-[13px] font-bold uppercase tracking-[0.12em] text-white/65">Contact</p><ul className="mt-3 space-y-2 text-[14px] text-white/80"><li className="flex items-center gap-2"><Mail size={14} /><a href="mailto:medichubnigeria@gmail.com" className="hover:text-lime-300">medichubnigeria@gmail.com</a></li><li className="flex items-center gap-2"><Phone size={14} /><a href="tel:+2347042744090" className="hover:text-lime-300">0704 274 4090</a></li></ul></div>
       </div>
-      <div className="border-t border-white/10"><p className="container-app py-5 text-[12.5px] text-white/45">© {new Date().getFullYear()} Medic Hub. Medic Hub helps you find care and does not dispatch ambulances. {DEMO ? 'Demo build: some hospitals show sample status.' : ''}</p></div>
+      <div className="border-t border-white/10"><p className="container-app py-5 text-[12.5px] text-white/65">© {new Date().getFullYear()} Medic Hub. Medic Hub helps you find care and does not dispatch ambulances. {DEMO ? 'Demo build: some hospitals show sample status.' : ''}</p></div>
     </footer>
   )
 }

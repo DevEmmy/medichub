@@ -9,6 +9,7 @@ import { EmptyState } from '../../components/ui/States'
 import { EMERGENCY_GUIDES, HEALTH_RESOURCES, videoById } from '../../data/firstAid'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { cn } from '../../utils/cn'
+import { ListenButton } from '../../contexts/A11yContext'
 
 export default function FirstAidGuide({ embedded = false }: { embedded?: boolean }) {
   const { slug = '' } = useParams()
@@ -26,7 +27,7 @@ export default function FirstAidGuide({ embedded = false }: { embedded?: boolean
         <div><h1 className="text-[30px] font-semibold leading-tight sm:text-[36px]">{g.title}</h1>{'short' in g && <p className="text-[15px] text-slate-600">{g.short}</p>}</div>
       </div>
 
-      <div className="mt-5"><Call112Button size="md" /></div>
+      <div className="mt-5 grid gap-2"><Call112Button size="md" /><ListenButton id="guide" label="Read steps aloud" className="h-12 w-full justify-center px-5 text-[15px] sm:w-auto sm:justify-self-start" text={() => `${g.title}. Do this now. ${g.doNow.map((x, i) => `Step ${i + 1}. ${x}`).join(' ')} Don't. ${g.dont.join(' ')} ${g.call112When}`} /></div>
       <p className="mt-3 rounded-2xl bg-danger-50 px-4 py-3 text-[14.5px] font-medium leading-relaxed text-danger-900 ring-1 ring-danger-100">{g.call112When}</p>
 
       {videos.length > 0 && (

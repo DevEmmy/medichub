@@ -43,7 +43,7 @@ export function NearestEmergency() {
           </div>
           <a href={tel(best.h.emergencyPhone)} className="mt-4 flex min-h-[68px] items-center justify-center gap-3 rounded-2xl bg-danger-600 px-4 text-white shadow-lift transition hover:bg-danger-700 active:scale-[0.99]" data-testid="call-nearest">
             <PhoneCall size={24} />
-            <span className="text-left"><span className="block font-display text-[20px] font-semibold leading-tight">Call emergency unit</span><span className="block select-all text-[13px] text-white/80 tabular">{best.h.emergencyPhone}</span></span>
+            <span className="text-left"><span className="block font-display text-[20px] font-semibold leading-tight">Call emergency unit</span><span className="block select-all text-[13px] text-white tabular">{best.h.emergencyPhone}</span></span>
           </a>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <a href={directionsUrl(best.h.lat, best.h.lng, location)} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm"><Navigation size={15} /> Directions</a>

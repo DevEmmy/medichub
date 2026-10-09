@@ -5,6 +5,7 @@ import { ArrowLeft, House, Siren } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth, homeFor } from '../contexts/AuthContext'
 import { useT } from '../i18n/LanguageContext'
+import { A11yButton } from '../contexts/A11yContext'
 
 /** Distraction-free frame for emergency screens. */
 export function EmergencyShell({ children, back }: { children: ReactNode; back?: string }) {
@@ -19,7 +20,8 @@ export function EmergencyShell({ children, back }: { children: ReactNode; back?:
             <ArrowLeft size={18} /> <span className="hidden min-[360px]:inline">{back ? 'Back' : t('em.exit')}</span>
           </button>
           <Link to={homeFor(user?.role, hospitalId)} className="inline-flex h-11 items-center gap-1.5 rounded-full px-3 text-[14px] font-semibold text-slate-700 hover:bg-white" data-testid="home-link" aria-label="Home"><House size={17} /> <span className="hidden min-[400px]:inline">Home</span></Link>
-          <p className="ml-auto inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-danger-600 px-3.5 py-1.5 text-[13px] font-bold text-white"><Siren size={15} /> {t('em.mode')}</p>
+          <A11yButton className="ml-auto" />
+          <p className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-danger-600 px-3.5 py-1.5 text-[13px] font-bold text-white"><Siren size={15} /> <span className="hidden min-[480px]:inline">{t('em.mode')}</span><span className="sr-only min-[480px]:hidden">{t('em.mode')}</span></p>
         </div>
       </header>
       <motion.main id="main" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }} className="mx-auto max-w-3xl px-4 pb-16 pt-6">

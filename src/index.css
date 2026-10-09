@@ -82,3 +82,17 @@
   .print-area { position: absolute; inset: 0 auto auto 0; width: 100%; }
   .no-print { display: none !important; }
 }
+
+/* ---------- Accessibility settings (A11yContext) ---------- */
+.a11y-reading { outline: 3px solid #C6F36B !important; outline-offset: 3px; border-radius: 8px; background-color: rgba(198, 243, 107, 0.28) !important; }
+.a11y-links a:not(.btn) { text-decoration: underline !important; text-underline-offset: 3px; }
+.a11y-motion *, .a11y-motion *::before, .a11y-motion *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+.a11y-contrast { --tw-ring-color: #06281F; }
+.a11y-contrast body { color: #000; }
+.a11y-contrast .text-slate-400, .a11y-contrast .text-slate-500, .a11y-contrast .text-slate-600 { color: #1f2937 !important; }
+.a11y-contrast .text-slate-700 { color: #0b1220 !important; }
+.a11y-contrast .text-white\/40, .a11y-contrast .text-white\/45, .a11y-contrast .text-white\/50, .a11y-contrast .text-white\/60, .a11y-contrast .text-white\/70 { color: #fff !important; }
+.a11y-contrast .ring-line, .a11y-contrast .ring-black\/5, .a11y-contrast .border-line { --tw-ring-color: #334155 !important; border-color: #334155 !important; }
+.a11y-contrast .bg-canvas, .a11y-contrast .bg-mist { background-color: #fff !important; }
+.a11y-contrast :focus-visible { outline: 3px solid #000 !important; outline-offset: 2px; box-shadow: 0 0 0 6px #C6F36B !important; }
+@media (prefers-reduced-motion: reduce) { .a11y-reading { scroll-behavior: auto; } }

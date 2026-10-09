@@ -102,6 +102,23 @@ export interface Service {
   bookable: boolean
   active: boolean
 }
+export type TeamRole = 'Doctor' | 'Nurse' | 'Front desk' | 'Admin' | 'Lab' | 'Pharmacy' | 'Billing' | 'Other'
+/** What each team member is emailed about. */
+export interface TeamAlerts { newBooking: boolean; paid: boolean; cancelled: boolean; rescheduled: boolean; dailySchedule: boolean }
+/** A person at the hospital who receives booking emails (they don't need a Medic Hub login). */
+export interface TeamMember {
+  id: string; hospitalId: string; name: string; role: TeamRole; email: string; phone?: string
+  /** Only bookings for this department (empty = every booking). */
+  departmentId?: string
+  alerts: TeamAlerts; active: boolean; lastDigestOn?: string; createdAt: string
+}
+export type EmailKind = 'new_booking' | 'paid' | 'cancelled' | 'rescheduled' | 'daily_schedule' | 'test' | 'patient_confirmation' | 'patient_update'
+export interface EmailLog {
+  id: string; hospitalId: string; bookingId?: string; toEmail: string; toName?: string
+  audience: 'team' | 'patient'; kind: EmailKind; subject: string; body: string
+  status: 'queued' | 'sent' | 'failed' | 'simulated'; error?: string; createdAt: string
+}
+
 export interface Doctor { id: string; hospitalId: string; name: string; specialty: string; departmentId?: string; available: boolean }
 
 export type EmergencyLevel = 'open' | 'busy' | 'closed'

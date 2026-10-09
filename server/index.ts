@@ -341,11 +341,24 @@ async function main() {
   for (const r of rows.rows) sessions.set(String(r.token_hash), { userId: String(r.user_id), createdAt: String(r.created_at), expiresAt: new Date(String(r.expires_at)).getTime() })
   await database.query('delete from sessions where expires_at <= now()')
 
-  if (process.env.RESEND_API_KEY && process.env.MAIL_FROM) {
-    mailer.enabled = true
-    mailer.appUrl = (process.env.APP_URL ?? '').replace(/\/?$/, '/')
+  // Email: Gmail / any SMTP (SMTP_USER + SMTP_PASS), or Resend (RESEND_API_KEY + MAIL_FROM)
+  const appUrl = (process.env.APP_URL ?? '').replace(/\/?$/, '/')
+  const fromAddr = (name?: string, addr = process.env.MAIL_FROM ?? process.env.SMTP_USER ?? '') => {
+    const bare = addr.replace(/^.*<([^>]+)>.*$/, '$1')
+    return name ? `"${name.replace(/["\r\n]/g, '')} via Medic Hub" <${bare}>` : addr.includes('<') ? addr : `"Medic Hub" <${bare}>`
+  }
+  if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+    const nodemailer = (await import('nodemailer')).default
+    const transport = nodemailer.createTransport({
+      host: process.env.SMTP_HOST ?? 'smtp.gmail.com', port: Number(process.env.SMTP_PORT ?? 465), secure: (process.env.SMTP_PORT ?? '465') === '465',
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    })
+    mailer.enabled = true; mailer.appUrl = appUrl
+    mailer.send = async (m) => { await transport.sendMail({ from: fromAddr(m.fromName), to: m.to, subject: m.subject, text: m.text, html: m.html, replyTo: m.replyTo }) }
+  } else if (process.env.RESEND_API_KEY && process.env.MAIL_FROM) {
+    mailer.enabled = true; mailer.appUrl = appUrl
     mailer.send = async (m) => {
-      const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: process.env.MAIL_FROM, to: m.to, subject: m.subject, text: m.text }) })
+      const r = await fetch(`${process.env.RESEND_BASE_URL ?? 'https://api.resend.com'}/emails`, { method: 'POST', headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: fromAddr(m.fromName), to: m.to, subject: m.subject, text: m.text, html: m.html, reply_to: m.replyTo }) })
       if (!r.ok) throw new Error(`email failed: ${r.status} ${await r.text().catch(() => '')}`)
     }
   }
@@ -356,7 +369,7 @@ async function main() {
   }
   await database.flush()
   startReminderScheduler()
-  server.listen(PORT, () => console.log(`[boot] Medic Hub on :${PORT} · database: ${database.kind} · email: ${mailer.enabled ? 'on' : 'off'} · AI: ${process.env.ANTHROPIC_API_KEY ? 'on' : 'off'} · payments: ${payments.gateway.mode} · ${db.select('hospitals').length} hospitals`))
+  server.listen(PORT, () => console.log(`[boot] Medic Hub on :${PORT} · database: ${database.kind} · email: ${mailer.enabled ? 'on' : 'off'} · AI: ${process.env.ANTHROPIC_API_KEY || process.env.AI_API_KEY ? 'on' : 'off'} · payments: ${payments.gateway.mode} · ${db.select('hospitals').length} hospitals`))
 }
 
 const shutdown = async () => { await database.flush().catch(() => {}); await database.close().catch(() => {}); process.exit(0) }

@@ -6,6 +6,7 @@ import { AppError, ENUMS, currentUser, latency, oneOf, requireHospitalStaff, req
 import { notify } from './notifications'
 import { refundPayment, requiresPayment } from './payments'
 import { fmtDate, fmtTime, nowHHMM, today } from '../utils/date'
+import { alertTeam, emailPatient } from './team'
 
 export interface BookingView extends Booking {
   hospitalName: string
@@ -121,6 +122,8 @@ export const createBooking = rpc('bookings.createBooking', async function create
   if (mustPay) return enrich(booking) // confirmations go out once payment is verified
   notify(u.id, 'booking', status === 'confirmed' ? 'Booking confirmed' : 'Booking requested', `${svc?.name} at ${h.name}, ${fmtDate(slot.date)} at ${fmtTime(slot.time)}. Ref ${ref}.`, `/app/bookings/${booking.id}`)
   db.select('hospital_staff').filter((s) => s.hospitalId === h.id).forEach((s) => notify(s.userId, 'booking', 'New booking', `${u.name} booked ${svc?.name} for ${fmtDate(slot.date)} at ${fmtTime(slot.time)}.`, '/hospital/bookings'))
+  void alertTeam(booking, 'new')
+  void emailPatient(booking, status === 'confirmed' ? 'confirmed' : 'requested')
   return enrich(booking)
 })
 
@@ -133,6 +136,7 @@ export const cancelMyBooking = rpc('bookings.cancelMyBooking', async function ca
   transition(b, 'cancelled', 'patient', 'Cancelled by patient')
   if (b.paymentStatus === 'paid' && b.paymentRef) await refundPayment(b.paymentRef, 'You cancelled the appointment.')
   db.select('hospital_staff').filter((s) => s.hospitalId === b.hospitalId).forEach((s) => notify(s.userId, 'booking', 'Booking cancelled', `${b.patientName} cancelled ${b.ref}.`, '/hospital/bookings'))
+  void alertTeam(b, 'cancelled', { by: 'the patient' })
 })
 
 function transition(b: Booking, status: BookingStatus, by: 'patient' | 'hospital', note?: string) {
@@ -184,6 +188,8 @@ export const setBookingStatus = rpc('bookings.setBookingStatus', async function 
   const h = db.select('hospitals').find((x) => x.id === hospitalId)!
   const m = STATUS_MSG[status]
   if (m) notify(b.patientId, 'booking', m[0], `${h.name} · ${b.ref}. ${note || m[1]}`, `/app/bookings/${b.id}`)
+  if (status === 'confirmed') void emailPatient(b, 'confirmed')
+  if (status === 'cancelled') { void emailPatient(b, 'cancelled', note); void alertTeam(b, 'cancelled', { by: 'your team', note }) }
   if (status === 'completed') {
     const svc = db.select('hospital_services').find((s) => s.id === b.serviceId)
     db.write(['health_events'], (d) => d.health_events.push({ id: uid('he_'), userId: b.patientId, type: 'visit', title: svc?.name ?? 'Hospital visit', detail: 'Visit completed.', date: b.date, place: h.name }))
@@ -207,6 +213,8 @@ export const rescheduleBooking = rpc('bookings.rescheduleBooking', async functio
     d.booking_events.push({ id: uid('be_'), bookingId: id, status: 'confirmed', at: now, by: 'hospital', note: `Rescheduled to ${fmtDate(ns.date)} ${fmtTime(ns.time)}` })
   })
   notify(b.patientId, 'booking', 'Your appointment has been updated', `${b.ref} moved to ${fmtDate(ns.date)} at ${fmtTime(ns.time)}.`, `/app/bookings/${id}`)
+  const moved = db.select('bookings').find((x) => x.id === id)
+  if (moved) { void alertTeam(moved, 'rescheduled'); void emailPatient(moved, 'rescheduled') }
 })
 
 /** Check-in lookup. Accepts a booking reference ("MED-7X82K9") or the full QR payload. */

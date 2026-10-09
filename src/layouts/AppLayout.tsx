@@ -11,13 +11,14 @@ import { UserMenu } from '../components/navigation/UserMenu'
 import { OfflineBanner } from '../components/navigation/OfflineBanner'
 import { useNotificationToasts } from '../hooks/useNotificationToasts'
 import { cn } from '../utils/cn'
+import { A11yButton } from '../contexts/A11yContext'
 
 export function EmergencyButton({ compact = false }: { compact?: boolean }) {
   const { enterEmergency } = useEmergency()
   const { t } = useT()
   return (
     <button onClick={(e) => enterEmergency(e)} aria-label={t('nav.emergency')} className={cn('inline-flex items-center gap-2 rounded-full bg-danger-600 font-semibold text-white shadow-[0_6px_18px_-6px_rgba(220,43,43,.6)] transition hover:bg-danger-700 active:scale-[0.97]', compact ? 'h-10 px-3.5 text-[13px]' : 'h-11 px-4 text-[14px]')}>
-      <Siren size={compact ? 16 : 17} /> <span className={compact ? 'hidden min-[380px]:inline' : ''}>{t('nav.emergency')}</span>
+      <Siren size={compact ? 16 : 17} /> <span className={compact ? 'hidden min-[440px]:inline' : ''}>{t('nav.emergency')}</span>
     </button>
   )
 }
@@ -48,7 +49,7 @@ export function AppLayout() {
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:shadow-lift">Skip to content</a>
       <OfflineBanner />
       <header className="sticky z-40 border-b border-line/70 bg-canvas/85 backdrop-blur-xl" style={{ top: 'env(safe-area-inset-top, 0px)' }}>
-        <div className="container-app flex h-16 items-center gap-4">
+        <div className="container-app flex h-16 items-center gap-2 sm:gap-4">
           <Logo />
           <nav className="ml-6 hidden items-center gap-1 lg:flex" aria-label="Main">
             {desktopLinks.map((l) => (
@@ -56,7 +57,8 @@ export function AppLayout() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-            {(!user || user.role === 'patient') && <Link to="/scan" aria-label="Scan a hospital QR code" className="grid h-10 w-10 place-items-center rounded-full text-slate-700 hover:bg-mist" data-testid="scan-link"><QrCode size={19} /></Link>}
+            {(!user || user.role === 'patient') && <Link to="/scan" aria-label="Scan a hospital QR code" className="hidden min-[360px]:grid h-10 w-10 place-items-center rounded-full text-slate-700 hover:bg-mist" data-testid="scan-link"><QrCode size={19} /></Link>}
+            <A11yButton />
             <LanguageButton onClick={() => setLangOpen(true)} compact={false} />
             <div className="hidden sm:block"><EmergencyButton /></div>
             {patient ? (<><NotificationBell allHref="/app/notifications" /><UserMenu /></>) : user ? (

@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { HashRouter, Route, Routes, Navigate } from 'react-router-dom'
 import { MotionConfig } from 'framer-motion'
+import { A11yProvider } from './contexts/A11yContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
 import { CallSheetHost } from './components/emergency/CallSheet'
@@ -55,6 +56,7 @@ const PassCheck = lazy(() => import('./pages/public/PassCheck'))
 const PaymentVerify = lazy(() => import('./pages/payments/PaymentVerify'))
 const TestCheckout = lazy(() => import('./pages/payments/TestCheckout'))
 const HospitalPayments = lazy(() => import('./pages/hospital/Payments'))
+const HospitalTeam = lazy(() => import('./pages/hospital/Team'))
 
 const AdminReview = lazy(() => import('./pages/admin/Review'))
 
@@ -68,6 +70,7 @@ export default function App() {
       <HashRouter>
         <ScrollToTop />
         <LanguageProvider>
+        <A11yProvider>
         <ToastProvider>
           <AuthProvider>
             <LocationProvider>
@@ -116,6 +119,7 @@ export default function App() {
                       <Route path="/hospital/reviews" element={<HospitalReviews />} />
                       <Route path="/hospital/plan" element={<Plan />} />
                       <Route path="/hospital/payments" element={<HospitalPayments />} />
+                      <Route path="/hospital/team" element={<HospitalTeam />} />
                       <Route path="/hospital/analytics" element={<Analytics />} />
                       <Route path="/hospital/automations" element={<Automations />} />
                       <Route path="/hospital/qr" element={<QrPoster />} />
@@ -133,6 +137,7 @@ export default function App() {
             </LocationProvider>
           </AuthProvider>
         </ToastProvider>
+        </A11yProvider>
         </LanguageProvider>
       </HashRouter>
     </MotionConfig>

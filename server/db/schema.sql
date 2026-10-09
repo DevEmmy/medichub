@@ -318,6 +318,39 @@ create table if not exists hospital_payouts (
   verified_at timestamptz not null
 );
 
+-- People at the hospital who get booking emails (no login needed)
+create table if not exists hospital_team (
+  id text primary key,
+  hospital_id text not null references hospitals(id) on delete cascade,
+  name text not null,
+  role text not null,
+  email text not null,
+  phone text,
+  department_id text,
+  alerts jsonb not null,
+  active boolean not null default true,
+  last_digest_on date,
+  created_at timestamptz not null default now()
+);
+create index if not exists hospital_team_hospital on hospital_team(hospital_id);
+
+-- Every email Medic Hub sends for a hospital (booking alerts, daily schedules, patient confirmations)
+create table if not exists email_log (
+  id text primary key,
+  hospital_id text not null references hospitals(id) on delete cascade,
+  booking_id text,
+  to_email text not null,
+  to_name text,
+  audience text not null check (audience in ('team','patient')),
+  kind text not null,
+  subject text not null,
+  body text not null,
+  status text not null check (status in ('queued','sent','failed','simulated')),
+  error text,
+  created_at timestamptz not null default now()
+);
+create index if not exists email_log_hospital on email_log(hospital_id, created_at desc);
+
 -- Upgrades for databases created before payments existed
 alter table hospitals add column if not exists payouts_enabled boolean;
 alter table bookings add column if not exists amount integer;

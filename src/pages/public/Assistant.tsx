@@ -243,7 +243,7 @@ export default function Assistant() {
                 </span>
               </div>
             </div>
-            <button onClick={() => setLangOpen(true)} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-3 text-[13px] font-bold text-ink shadow-soft ring-1 ring-black/5"><Languages size={15} /> <span className="hidden sm:inline">{langName}</span></button>
+            <button onClick={() => setLangOpen(true)} aria-label={`Language: ${langName}`} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-3 text-[13px] font-bold text-ink shadow-soft ring-1 ring-black/5"><Languages size={15} /> <span className="hidden sm:inline">{langName}</span></button>
             <button onClick={newChat} className="grid h-10 w-10 place-items-center rounded-full bg-white shadow-soft ring-1 ring-black/5 lg:hidden" aria-label={t('ai.new')}><MessageSquarePlus size={18} /></button>
           </div>
 

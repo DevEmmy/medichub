@@ -15,6 +15,10 @@ services:
         sync: false          # 10+ characters; change it after first sign-in
       - key: APP_URL
         sync: false          # e.g. https://medichub.onrender.com/
+      - key: SMTP_USER
+        sync: false          # Gmail address for booking emails (optional)
+      - key: SMTP_PASS
+        sync: false          # Gmail app password
       - key: RESEND_API_KEY
         sync: false          # emails: password resets, status reminders, weekly reports
       - key: MAIL_FROM

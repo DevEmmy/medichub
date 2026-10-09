@@ -148,7 +148,7 @@ export function buildSeed(): Tables {
     users: [], patient_profiles: [], hospitals: [], hospital_staff: [], hospital_departments: [], hospital_services: [],
     hospital_doctors: [], hospital_status: [], hospital_capacity: [], hospital_slots: [], bookings: [], booking_events: [],
     health_profiles: [], health_events: [], emergency_contacts: [], notifications: [], hospital_announcements: [],
-    hospital_documents: [], password_resets: [], hospital_reviews: [], payments: [], hospital_payouts: [],
+    hospital_documents: [], password_resets: [], hospital_reviews: [], payments: [], hospital_payouts: [], hospital_team: [], email_log: [],
   }
   const plain = 'plain:' + DEMO_PASSWORD
   const mkUser = (id: string, email: string, role: User['role'], name: string, phone?: string): User => ({ id, email, passwordHash: plain, role, name, phone, createdAt: now })
@@ -322,6 +322,15 @@ export function buildSeed(): Tables {
   nt('u_lagooncrest', 'booking', 'New booking', 'Temitope Oyelaran booked a cardiology consultation.', 45, '/hospital/bookings')
   nt('u_lagooncrest', 'verification', 'Hospital verification approved', 'Lagoon Crest Specialist Hospital is verified on Medic Hub.', 60 * 24 * 40, '/hospital/verification', true)
   nt('u_admin', 'verification', 'New verification request', 'Tanke Hills Medical Centre submitted documents for review.', 60 * 48, '/admin')
+
+  // Demo hospital team: who gets booking emails
+  const lcDept = (name: string) => t.hospital_departments.find((x) => x.hospitalId === 'h_lagooncrest' && x.name === name)?.id
+  const all = { newBooking: true, paid: true, cancelled: true, rescheduled: true, dailySchedule: true }
+  t.hospital_team.push(
+    { id: 'tm_lc_1', hospitalId: 'h_lagooncrest', name: 'Dr. Folake Adebayo', role: 'Doctor', email: 'folake.adebayo@lagooncrest.example', phone: '+234 802 111 0101', alerts: { ...all, newBooking: false, paid: false }, active: true, createdAt: now },
+    { id: 'tm_lc_2', hospitalId: 'h_lagooncrest', name: 'Ngozi Eze', role: 'Front desk', email: 'frontdesk@lagooncrest.example', alerts: all, active: true, createdAt: now },
+    { id: 'tm_lc_3', hospitalId: 'h_lagooncrest', name: 'Dr. Tunde Bakare', role: 'Doctor', email: 'tunde.bakare@lagooncrest.example', departmentId: lcDept('Cardiology'), alerts: all, active: true, createdAt: now },
+  )
   return t
 }
 
@@ -343,6 +352,6 @@ export function buildPublicDirectory(): Tables {
     hospital_doctors: [], hospital_status: keep(t.hospital_status).map((s) => ({ ...s, updatedAt: old })),
     hospital_capacity: keep(t.hospital_capacity).map((c) => ({ ...c, updatedAt: old })), hospital_slots: [],
     bookings: [], booking_events: [], health_profiles: [], health_events: [], emergency_contacts: [], notifications: [],
-    hospital_announcements: [], hospital_documents: [], password_resets: [], hospital_reviews: [], payments: [], hospital_payouts: [],
+    hospital_announcements: [], hospital_documents: [], password_resets: [], hospital_reviews: [], payments: [], hospital_payouts: [], hospital_team: [], email_log: [],
   }
 }

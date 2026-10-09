@@ -36,12 +36,13 @@ function browserSet(s: Session | null) {
   write('local', LAST_KEY, v)
 }
 
+export interface OutgoingMail { to: string; subject: string; text: string; html?: string; replyTo?: string; fromName?: string }
 /** Outgoing email. Off in the browser; the server switches it on when an email provider is configured. */
 export const mailer = {
   enabled: false,
   appUrl: '',
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  send: async (_m: { to: string; subject: string; text: string }): Promise<void> => {},
+  send: async (_m: OutgoingMail): Promise<void> => {},
 }
 
 /** Payment gateway. Off by default; the browser demo installs a test gateway and the server installs Paystack. */

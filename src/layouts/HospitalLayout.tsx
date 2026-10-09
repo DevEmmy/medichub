@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Activity, CalendarRange, ClipboardList, ScanLine, Building2, Megaphone, ShieldCheck, LayoutDashboard, Menu, X, ExternalLink, Settings, Star, Crown, BarChart3, Workflow, QrCode, Banknote } from 'lucide-react'
+import { Activity, CalendarRange, ClipboardList, ScanLine, Building2, Megaphone, ShieldCheck, LayoutDashboard, Menu, X, ExternalLink, Settings, Star, Crown, BarChart3, Workflow, QrCode, Banknote, UsersRound } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useLive } from '../hooks/useLive'
 import { db } from '../lib/store'
@@ -13,12 +13,14 @@ import { VerificationPill } from '../components/hospital-admin/VerificationPill'
 import { OfflineBanner } from '../components/navigation/OfflineBanner'
 import { useNotificationToasts } from '../hooks/useNotificationToasts'
 import { cn } from '../utils/cn'
+import { A11yButton } from '../contexts/A11yContext'
 
 const NAV = [
   { to: '/hospital', label: 'Overview', icon: LayoutDashboard, end: true },
   { to: '/hospital/status', label: 'Live status & capacity', icon: Activity },
   { to: '/hospital/slots', label: 'Appointment slots', icon: CalendarRange },
   { to: '/hospital/bookings', label: 'Bookings', icon: ClipboardList },
+  { to: '/hospital/team', label: 'Team & email alerts', icon: UsersRound },
   { to: '/hospital/check-in', label: 'Check-in', icon: ScanLine },
   { to: '/hospital/profile', label: 'Hospital profile', icon: Building2 },
   { to: '/hospital/announcements', label: 'Announcements', icon: Megaphone },
@@ -90,6 +92,7 @@ export function HospitalLayout() {
               <div className="flex items-center gap-2"><p className="truncate font-display text-[16px] font-semibold text-ink">{h?.name ?? 'Set up your facility'}</p>{h && <span className="hidden sm:inline-flex"><VerificationPill v={h.verification} size="sm" /></span>}</div>
             </div>
             {h && <Link to="/hospital/check-in" className="btn btn-secondary btn-sm hidden md:inline-flex"><ScanLine size={15} /> Check in patient</Link>}
+            <A11yButton />
             <NotificationBell allHref="/hospital/notifications" />
             <UserMenu links={menuLinks} />
           </div>

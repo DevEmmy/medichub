@@ -12,7 +12,7 @@
 import type {
   User, PatientProfile, Hospital, HospitalStaff, Department, Service, Doctor, HospitalStatus, HospitalCapacity,
   Slot, Booking, BookingEvent, HealthProfile, HealthEvent, EmergencyContact, Notification, Announcement,
-  HospitalDocument, PasswordReset, Review, Payment, HospitalPayout,
+  HospitalDocument, PasswordReset, Review, Payment, HospitalPayout, TeamMember, EmailLog,
 } from '../types'
 
 export interface Tables {
@@ -38,6 +38,8 @@ export interface Tables {
   hospital_reviews: Review[]
   payments: Payment[]
   hospital_payouts: HospitalPayout[]
+  hospital_team: TeamMember[]
+  email_log: EmailLog[]
 }
 export type TableName = keyof Tables
 
@@ -48,17 +50,19 @@ export const TABLE_KEYS: Record<TableName, string> = {
   hospital_slots: 'id', bookings: 'id', booking_events: 'id', health_profiles: 'userId', health_events: 'id',
   emergency_contacts: 'id', notifications: 'id', hospital_announcements: 'id', hospital_documents: 'id',
   password_resets: 'token', hospital_reviews: 'id', payments: 'id', hospital_payouts: 'hospitalId',
+  hospital_team: 'id', email_log: 'id',
 }
 /** Parent tables first, so inserts respect foreign keys (deletes run in reverse). */
 export const TABLE_ORDER: TableName[] = [
   'users', 'patient_profiles', 'hospitals', 'hospital_staff', 'hospital_departments', 'hospital_services', 'hospital_doctors',
   'hospital_status', 'hospital_capacity', 'hospital_slots', 'bookings', 'booking_events', 'health_profiles', 'health_events',
   'emergency_contacts', 'notifications', 'hospital_announcements', 'hospital_documents', 'password_resets', 'hospital_reviews', 'payments', 'hospital_payouts',
+  'hospital_team', 'email_log',
 ]
 export const emptyTables = (): Tables => Object.fromEntries(TABLE_ORDER.map((t) => [t, []])) as unknown as Tables
 
-const KEY = 'medichub.db.v8'
-const SCHEMA_VERSION = 8
+const KEY = 'medichub.db.v9'
+const SCHEMA_VERSION = 9
 
 type Listener = (tables: TableName[], remote: boolean) => void
 
@@ -134,7 +138,7 @@ class Store {
       this.persist()
     } else {
       delete parsed.__v
-      this.data = parsed
+      this.data = { ...emptyTables(), ...parsed }
     }
     if (this.maintain && this.maintain(this.data)) this.persist()
   }
@@ -145,7 +149,7 @@ class Store {
     try {
       const parsed = JSON.parse(raw)
       delete parsed.__v
-      this.data = parsed
+      this.data = { ...emptyTables(), ...parsed }
       this.emit(tables.length ? tables : (Object.keys(this.data) as TableName[]), true)
     } catch { /* ignore */ }
   }

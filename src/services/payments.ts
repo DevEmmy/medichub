@@ -13,6 +13,7 @@ import { uid } from '../lib/ids'
 import type { Booking, HospitalPayout, Payment } from '../types'
 import { AppError, currentUser, latency, payments, requireHospitalStaff, requireRole, text } from './core'
 import { notify } from './notifications'
+import { alertTeam, emailPatient } from './team'
 import { fmtDate, fmtTime } from '../utils/date'
 
 export const HOLD_MINUTES = 30
@@ -115,8 +116,11 @@ export async function settleReference(reference: string): Promise<{ status: 'pai
   const h = db.select('hospitals').find((x) => x.id === b.hospitalId)!
   const paidAt = v.paidAt ?? new Date().toISOString()
   const late = b.status === 'cancelled' // the hold expired before the money arrived
+  let won = true
   db.write(['payments', 'bookings', 'booking_events', 'hospital_slots'], (d) => {
-    const x = d.payments.find((y) => y.id === p.id)!; x.status = 'success'; x.paidAt = paidAt; x.channel = v.channel; x.gatewayResponse = v.gatewayResponse
+    const x = d.payments.find((y) => y.id === p.id)!
+    if (x.status === 'success' || x.status === 'refunded') { won = false; return } // settled by a parallel request
+    x.status = 'success'; x.paidAt = paidAt; x.channel = v.channel; x.gatewayResponse = v.gatewayResponse
     const bk = d.bookings.find((y) => y.id === b.id)!
     bk.paymentStatus = 'paid'; bk.paidAt = paidAt; bk.paymentRef = reference; bk.updatedAt = paidAt
     if (bk.status === 'awaiting_payment') {
@@ -124,6 +128,7 @@ export async function settleReference(reference: string): Promise<{ status: 'pai
       d.booking_events.push({ id: uid('be_'), bookingId: bk.id, status: bk.status, at: paidAt, by: 'system', note: `Paid ${naira(p.amountKobo / 100)} (${reference})` })
     }
   })
+  if (!won) return { status: 'paid', bookingId: b.id }
   if (late) {
     await refundPayment(reference, 'The appointment hold expired before payment arrived.')
     return { status: 'failed', bookingId: b.id, message: 'Your payment arrived after the time slot was released, so it has been refunded. Please book again.' }
@@ -131,6 +136,7 @@ export async function settleReference(reference: string): Promise<{ status: 'pai
   const svc = db.select('hospital_services').find((s) => s.id === b.serviceId)
   notify(b.patientId, 'booking', 'Payment received · booking confirmed', `${naira(p.amountKobo / 100)} paid for ${svc?.name ?? 'your appointment'} at ${h.name}, ${fmtDate(b.date)} at ${fmtTime(b.time)}. Ref ${b.ref}.`, `/app/bookings/${b.id}`)
   db.select('hospital_staff').filter((s) => s.hospitalId === b.hospitalId).forEach((s) => notify(s.userId, 'booking', 'New paid booking', `${b.patientName} paid ${naira(p.amountKobo / 100)} for ${svc?.name ?? 'an appointment'} on ${fmtDate(b.date)} at ${fmtTime(b.time)}.`, '/hospital/payments'))
+  { const fresh = db.select('bookings').find((x) => x.id === b.id) ?? b; void alertTeam(fresh, 'paid', { amount: p.amountKobo / 100 }); void emailPatient(fresh, 'paid') }
   return { status: 'paid', bookingId: b.id }
 }
 

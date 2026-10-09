@@ -22,7 +22,7 @@ export function Call112Button({ size = 'xl', className }: { size?: 'md' | 'xl'; 
     <div className={cn('w-full', className)}>
       {best ? (
         <a href={`tel:${best.emergencyPhone.replace(/\s/g, '')}`} className={cls} aria-label={`Call ${best.name} emergency unit`}>
-          {icon}<span className="min-w-0"><span className="block leading-tight">{t('em.call')}</span><span className="block truncate text-[13px] font-medium text-white/80">{best.name}</span></span>
+          {icon}<span className="min-w-0"><span className="block leading-tight">{t('em.call')}</span><span className="block truncate text-[13px] font-medium text-white">{best.name}</span></span>
         </a>
       ) : (
         <Link to="/find?emergency=1" className={cls}>{icon}<span>{t('em.findHospitals')}</span></Link>
