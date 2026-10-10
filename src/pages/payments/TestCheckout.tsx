@@ -42,7 +42,7 @@ export default function TestCheckout() {
         <button disabled={busy} onClick={() => finish(false)} className="btn btn-ghost mt-2 w-full">Simulate a declined card</button>
         {err && <p role="alert" className="mt-2 rounded-xl bg-danger-50 px-3 py-2 text-[13px] font-medium text-danger-700">{err}</p>}
       </section>
-      <p className="mt-3 text-center text-[12px] text-slate-500">Payment simulator for the demo. In the live app this page is Paystack's secure checkout (card, bank transfer or USSD), and the money goes to the hospital's bank account.</p>
+      <p className="mt-3 text-center text-[12px] text-slate-500">Payment simulator for this demo: no real money moves. Real online payment will be added when Medic Hub goes live.</p>
     </div>
   )
 }

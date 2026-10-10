@@ -35,7 +35,7 @@ function AccountForm({ hospitalId, onDone }: { hospitalId: string; onDone: () =>
       {err && <p role="alert" className="rounded-xl bg-danger-50 px-3 py-2.5 text-[13.5px] font-medium text-danger-700">{err}</p>}
       {!name ? <button onClick={verify} disabled={!bank || acct.length !== 10 || !!busy} className="btn btn-primary w-full">{busy === 'verify' ? <Spinner /> : null} Verify account</button>
         : <button onClick={save} disabled={!!busy} className="btn btn-brand w-full">{busy === 'save' ? <Spinner /> : <ShieldCheck size={16} />} This is our account. Save and start receiving payments</button>}
-      <p className="text-[12px] text-slate-500">We confirm the account name with your bank before saving. Payments settle directly to this account through Paystack; Medic Hub never holds your money. Only the last four digits are stored.</p>
+      <p className="text-[12px] text-slate-500">We confirm the account name with your bank before saving. Payments settle directly to this account; Medic Hub never holds your money. (In this demo, payments are simulated.) Only the last four digits are stored.</p>
     </div>
   )
 }

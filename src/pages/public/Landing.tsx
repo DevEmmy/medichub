@@ -227,28 +227,6 @@ function EmergencyBand() {
   )
 }
 
-function PhoneBand() {
-  return (
-    <section className="container-app py-14" aria-labelledby="phone-h">
-      <div className="grid items-center gap-6 rounded-[32px] bg-white p-6 ring-1 ring-line sm:p-10 lg:grid-cols-[1.3fr_1fr]">
-        <div>
-          <p className="eyebrow">No smartphone? No data?</p>
-          <h2 id="phone-h" className="mt-2 font-display text-[34px] font-extrabold leading-[1.05] tracking-[-0.02em] text-ink sm:text-[44px]">Works on every phone, even without internet.</h2>
-          <p className="mt-3 max-w-xl text-[16px] leading-relaxed text-slate-600">Dial a code or send a text to find an open emergency unit, book an appointment and get first-aid steps. Built for our parents and grandparents.</p>
-          <Link to="/phone" className="btn btn-primary mt-5" data-testid="phone-cta">Try it on a phone <ArrowRight size={16} /></Link>
-        </div>
-        <div className="rounded-[28px] bg-[#1B2422] p-4">
-          <pre className="whitespace-pre-wrap rounded-2xl bg-[#C9D8B6] p-4 font-mono text-[14px] leading-snug text-[#152016]">{`Medic Hub
-1 Emergency: open units
-2 Book appointment
-3 My bookings
-4 Cancel booking
-5 First aid`}</pre>
-        </div>
-      </div>
-    </section>
-  )
-}
 
 function ForHospitals() {
   return (
@@ -303,7 +281,7 @@ function Footer() {
     <footer className="bg-ink text-white">
       <div className="container-app grid gap-10 py-14 md:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
         <div><Logo light /><p className="mt-4 max-w-xs text-[14px] leading-relaxed text-white/60">The right hospital, right now. Built in Nigeria by Team Medic Hub.</p></div>
-        <div><p className="text-[13px] font-bold uppercase tracking-[0.12em] text-white/65">Patients</p><ul className="mt-3 space-y-2 text-[14px] text-white/80">{[['Find care', '/find'], ['Any phone: USSD & SMS', '/phone'], ['Medic AI', '/assistant'], ['First aid', '/first-aid'], ['Check symptoms', '/triage'], ['Scan a QR code', '/scan']].map(([l, to]) => <li key={to}><Link to={to} className="hover:text-lime-300">{l}</Link></li>)}</ul></div>
+        <div><p className="text-[13px] font-bold uppercase tracking-[0.12em] text-white/65">Patients</p><ul className="mt-3 space-y-2 text-[14px] text-white/80">{[['Find care', '/find'], ['Medic AI', '/assistant'], ['First aid', '/first-aid'], ['Check symptoms', '/triage'], ['Scan a QR code', '/scan']].map(([l, to]) => <li key={to}><Link to={to} className="hover:text-lime-300">{l}</Link></li>)}</ul></div>
         <div><p className="text-[13px] font-bold uppercase tracking-[0.12em] text-white/65">Hospitals</p><ul className="mt-3 space-y-2 text-[14px] text-white/80">{[['Register', '/signup?role=hospital'], ['Sign in', '/login']].map(([l, to]) => <li key={to}><Link to={to} className="hover:text-lime-300">{l}</Link></li>)}</ul></div>
         <div><p className="text-[13px] font-bold uppercase tracking-[0.12em] text-white/65">Contact</p><ul className="mt-3 space-y-2 text-[14px] text-white/80"><li className="flex items-center gap-2"><Mail size={14} /><a href="mailto:medichubnigeria@gmail.com" className="hover:text-lime-300">medichubnigeria@gmail.com</a></li><li className="flex items-center gap-2"><Phone size={14} /><a href="tel:+2347042744090" className="hover:text-lime-300">0704 274 4090</a></li></ul></div>
       </div>
@@ -323,7 +301,6 @@ export default function Landing() {
         <Steps />
         <AiSection />
         <EmergencyBand />
-        <PhoneBand />
         <ForHospitals />
         {DEMO && <DemoStrip />}
         <section className="container-app pb-20">
