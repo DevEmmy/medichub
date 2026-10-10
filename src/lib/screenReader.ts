@@ -102,6 +102,21 @@ export function readerItems(root: HTMLElement = document.body): ReaderItem[] {
   return out.filter((x) => x.text.trim())
 }
 
+/**
+ * Keeps the keyboard where the voice is, like NVDA: moves real focus to the thing being read, so
+ * Enter opens it and Tab continues from there. Text that can't normally take focus gets tabindex=-1
+ * (it still isn't a Tab stop). Fields are left alone so arrow keys keep reading instead of typing.
+ */
+let quiet = 0
+export const isQuietFocus = () => quiet > 0
+export function followFocus(el: HTMLElement | null) {
+  if (!el || !document.contains(el) || el.matches('input,select,textarea,[contenteditable=true]') || document.activeElement === el) return
+  if (!el.matches(INTERACTIVE) && !el.hasAttribute('tabindex')) { el.setAttribute('tabindex', '-1'); el.setAttribute('data-sr-tab', '') }
+  quiet++
+  try { el.focus({ preventScroll: true }) } finally { setTimeout(() => { quiet-- }, 0) }
+}
+export function clearFollowFocus() { document.querySelectorAll('[data-sr-tab]').forEach((x) => { x.removeAttribute('tabindex'); x.removeAttribute('data-sr-tab') }) }
+
 interface Options { say: (text: string) => void; stop: () => void; readFrom: (el: HTMLElement | null) => void; onMove?: (el: HTMLElement | null) => void }
 
 /** Turns the screen reader on. Returns a function that turns it off. */
@@ -110,7 +125,7 @@ export function startScreenReader(o: Options): () => void {
   const mark = (el: HTMLElement | null) => {
     document.querySelectorAll('.sr-cursor').forEach((x) => x.classList.remove('sr-cursor'))
     current = el
-    if (el) { el.classList.add('sr-cursor'); el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }) }
+    if (el) { el.classList.add('sr-cursor'); el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); followFocus(el) }
     o.onMove?.(el)
   }
   const sayItem = (it: ReaderItem | undefined) => { if (!it) { o.say('Bottom of page'); return } mark(it.el); o.say(it.text) }
@@ -156,7 +171,7 @@ export function startScreenReader(o: Options): () => void {
   // Tab moves real focus; read whatever arrives
   const onFocus = (e: FocusEvent) => {
     const el = e.target as HTMLElement
-    if (!el?.matches?.(INTERACTIVE + ',h1,h2,h3,[role=heading]')) return
+    if (isQuietFocus() || !el?.matches?.(INTERACTIVE + ',h1,h2,h3,[role=heading]')) return
     mark(el); o.say(describe(el))
   }
 
@@ -207,5 +222,6 @@ export function startScreenReader(o: Options): () => void {
     document.removeEventListener('click', onClick, true)
     document.documentElement.classList.remove('sr-on')
     mark(null)
+    clearFollowFocus()
   }
 }

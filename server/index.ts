@@ -398,25 +398,34 @@ async function main() {
     const bare = addr.replace(/^.*<([^>]+)>.*$/, '$1')
     return name ? `"${name.replace(/["\r\n]/g, '')} via Medic Hub" <${bare}>` : addr.includes('<') ? addr : `"Medic Hub" <${bare}>`
   }
-  if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-    const nodemailer = (await import('nodemailer')).default
-    const transport = nodemailer.createTransport({
-      host: process.env.SMTP_HOST ?? 'smtp.gmail.com', port: Number(process.env.SMTP_PORT ?? 465), secure: (process.env.SMTP_PORT ?? '465') === '465',
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-    })
-    mailer.enabled = true; mailer.appUrl = appUrl; mailer.provider = 'smtp'
-    mailer.send = async (m) => { await transport.sendMail({ from: fromAddr(m.fromName), to: m.to, subject: m.subject, text: m.text, html: m.html, replyTo: m.replyTo }) }
-  } else if (process.env.BREVO_API_KEY && process.env.MAIL_FROM) {
-    // Brevo's HTTPS API: free 300 emails a day, and works on hosts that block email ports (e.g. Render free)
-    mailer.enabled = true; mailer.appUrl = appUrl; mailer.provider = 'brevo'
+  const smtpUser = process.env.SMTP_USER?.trim(), smtpPass = process.env.SMTP_PASS?.trim()
+  const brevoKey = process.env.BREVO_API_KEY?.trim()
+  // A Brevo SMTP key (xsmtpsib-…) or login (…@smtp-brevo.com) means Brevo's SMTP relay. Its port 2525 works on
+  // Render's free plan, which blocks the usual email ports 25, 465 and 587.
+  const brevoSmtp = /^xsmtpsib-/.test(smtpPass ?? '') || /@smtp-brevo\.com$/i.test(smtpUser ?? '') || /brevo|sendinblue/i.test(process.env.SMTP_HOST ?? '')
+  if (brevoKey && !/^xsmtpsib-/.test(brevoKey) && process.env.MAIL_FROM) {
+    // Brevo's HTTPS API: free 300 emails a day, no email ports needed
+    mailer.enabled = true; mailer.appUrl = appUrl; mailer.provider = 'brevo api'
     mailer.send = async (m) => {
-      const from = process.env.MAIL_FROM!; const email = from.replace(/^.*<([^>]+)>.*$/, '$1').trim()
+      const email = process.env.MAIL_FROM!.replace(/^.*<([^>]+)>.*$/, '$1').trim()
       const r = await fetch(`${process.env.BREVO_BASE_URL ?? 'https://api.brevo.com'}/v3/smtp/email`, {
-        method: 'POST', signal: AbortSignal.timeout(15_000), headers: { 'api-key': process.env.BREVO_API_KEY!.trim(), 'Content-Type': 'application/json', Accept: 'application/json' },
+        method: 'POST', signal: AbortSignal.timeout(15_000), headers: { 'api-key': brevoKey, 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ sender: { email, name: m.fromName ? `${m.fromName} via Medic Hub` : 'Medic Hub' }, to: [{ email: m.to }], subject: m.subject, textContent: m.text, htmlContent: m.html ?? `<pre>${m.text.replace(/</g, '&lt;')}</pre>`, ...(m.replyTo ? { replyTo: { email: m.replyTo } } : {}) }),
       })
       if (!r.ok) throw new Error(`email failed: ${r.status} ${await r.text().catch(() => '')}`)
     }
+  } else if (smtpUser && smtpPass) {
+    const nodemailer = (await import('nodemailer')).default
+    const host = process.env.SMTP_HOST?.trim() || (brevoSmtp ? 'smtp-relay.brevo.com' : 'smtp.gmail.com')
+    const port = Number(process.env.SMTP_PORT || (brevoSmtp ? 2525 : 465))
+    const transport = nodemailer.createTransport({
+      host, port, secure: port === 465, requireTLS: port !== 465,
+      connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 15_000,
+      auth: { user: smtpUser, pass: smtpPass },
+    })
+    mailer.enabled = true; mailer.appUrl = appUrl; mailer.provider = `smtp ${host}:${port}`
+    mailer.send = async (m) => { await transport.sendMail({ from: fromAddr(m.fromName), to: m.to, subject: m.subject, text: m.text, html: m.html, replyTo: m.replyTo }) }
+    if (brevoSmtp && !/@smtp-brevo\.com$/i.test(smtpUser)) console.warn('[boot] Brevo SMTP: SMTP_USER is usually the "Login" shown in Brevo (…@smtp-brevo.com); put your Gmail in MAIL_FROM')
   } else if (process.env.RESEND_API_KEY && process.env.MAIL_FROM) {
     mailer.enabled = true; mailer.appUrl = appUrl; mailer.provider = 'resend'
     mailer.send = async (m) => {
@@ -433,7 +442,7 @@ async function main() {
         mailer.stats.sent++
       } catch (e) {
         mailer.stats.failed++
-        mailer.stats.lastError = { at: new Date().toISOString(), message: String((e as Error)?.message ?? e).replace(/(xkeysib|re_)[\w-]+/g, '[key]').slice(0, 400) }
+        mailer.stats.lastError = { at: new Date().toISOString(), message: String((e as Error)?.message ?? e).replace(/(xkeysib|xsmtpsib|re_)[\w-]+/g, '[key]').slice(0, 400) }
         console.error('[email] failed:', mailer.stats.lastError.message)
         throw e
       }

@@ -7,7 +7,7 @@ import { Toggle } from '../components/ui/Field'
 import { useT } from '../i18n/LanguageContext'
 import { canSpeak, hasVoiceFor, onSpeech, pauseSpeaking, resumeSpeaking, setRate, speak, speakSegments, SPEECH_LANG, stopSpeaking } from '../lib/speech'
 import { cn } from '../utils/cn'
-import { startScreenReader } from '../lib/screenReader'
+import { describe, followFocus, isQuietFocus, startScreenReader } from '../lib/screenReader'
 
 export interface A11ySettings { textScale: 1 | 1.15 | 1.3; contrast: boolean; reduceMotion: boolean; underlineLinks: boolean; talkBack: boolean; rate: number }
 const DEFAULTS: A11ySettings = { textScale: 1, contrast: false, reduceMotion: false, underlineLinks: false, talkBack: false, rate: 1 }
@@ -105,12 +105,27 @@ export function A11yProvider({ children }: { children: ReactNode }) {
         const el = items[i].el
         el.classList.add('a11y-reading'); marked.current = el
         el.scrollIntoView({ block: 'center', behavior: settings.reduceMotion ? 'auto' : 'smooth' })
+        followFocus(el) // Enter opens what is being read; Tab moves on from here
         setProgress({ i, n: items.length })
       },
     }).then(() => { unmark(); setProgress(null) })
   }, [voiceLang, settings.reduceMotion])
   const stop = () => { stopSpeaking(); unmark(); setProgress(null) }
   readFromRef.current = readPage
+
+  // While the page is being read: Tab (or a click) stops it and reads where you landed; Esc stops it
+  const pageReading = reading.speaking && reading.id === 'page'
+  useEffect(() => {
+    if (!pageReading) return
+    const onFocus = (e: FocusEvent) => {
+      if (isQuietFocus() || settings.talkBack) return // the screen reader speaks focus itself
+      stop(); const el = e.target as HTMLElement
+      if (el?.matches?.('a,button,input,select,textarea,summary,[role],[tabindex]')) void speak(describe(el), voiceLang, 'focus')
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') stop() }
+    document.addEventListener('focusin', onFocus); document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('focusin', onFocus); document.removeEventListener('keydown', onKey) }
+  }, [pageReading, settings.talkBack, voiceLang]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Screen reader mode (NVDA-style keys on a computer, TalkBack-style gestures on a phone)
   useEffect(() => {

@@ -24,7 +24,7 @@ Team Medic Hub · medichubnigeria@gmail.com · 07042744090
    - `APP_URL` – where people open the app; links in emails point here. Use `https://devemmy.github.io/medichub/` if the website stays on GitHub Pages, else the Render address.
    - `ALLOWED_ORIGINS` – `https://devemmy.github.io` when the website is on GitHub Pages.
    - Email (booking alerts to hospital staff, patient confirmations, password resets, status reminders, weekly reports). Set one of:
-     - **Brevo** (free, 300 emails a day, works on Render's free plan): `BREVO_API_KEY` + `MAIL_FROM` (an address you verified as a sender in Brevo).
+     - **Brevo** (free, 300 emails a day, works on Render's free plan): `BREVO_API_KEY` (starts `xkeysib-`) + `MAIL_FROM` (an address you verified as a sender in Brevo). Or Brevo SMTP: `SMTP_USER` = the Brevo **Login** (…@smtp-brevo.com), `SMTP_PASS` = the SMTP key (`xsmtpsib-…`), `MAIL_FROM` = your verified Gmail; the server then uses smtp-relay.brevo.com port 2525, which Render's free plan allows.
      - **Gmail**: `SMTP_USER` (your Gmail address) + `SMTP_PASS` (a Google *App password*: Google Account → Security → 2-Step Verification → App passwords). Optional `SMTP_HOST`/`SMTP_PORT` for other providers. Gmail allows about 500 emails a day. Render's free plan blocks email ports, so use Brevo or Resend there.
      - **Resend**: `RESEND_API_KEY` + `MAIL_FROM` ([Resend](https://resend.com)), better for high volume.
      Without email, alerts are still recorded in each hospital's Email activity, and password reset is disabled for safety.

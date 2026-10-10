@@ -40,10 +40,50 @@ const clear = (p) => p.evaluate(() => { window.__said = [] })
   const link = await last(p); const before = p.url()
   await p.keyboard.press('Enter'); await p.waitForTimeout(800)
   ok(p.url() !== before || /link/.test(link), `Enter opens the link being read ("${link}") → ${p.url().split('#')[1]}`)
+  // Tab continues from where the voice is (not from the top of the page)
+  await p.goto(BASE + '#/'); await p.waitForTimeout(1200); await p.locator('body').click({ position: { x: 5, y: 400 } }); await clear(p)
+  await p.keyboard.press('h'); await p.waitForTimeout(150)
+  await p.keyboard.press('Tab'); await p.waitForTimeout(200)
+  const afterHeading = await last(p)
+  ok(!/Medic Hub home|Find care, link/.test(afterHeading) && /link|button/.test(afterHeading), `Tab after the heading moves to the next control below it: "${afterHeading}"`)
+  const focused = await p.evaluate(() => document.activeElement?.textContent?.trim().slice(0, 40))
+  await p.keyboard.press('Enter'); await p.waitForTimeout(900)
+  ok(p.url() !== BASE + '#/', `Enter opens what was just read ("${focused}") → ${p.url().split('#')[1]}`)
   // Tab into a field and Enter on a button
   await p.goto(BASE + '#/login'); await p.waitForTimeout(1000); await clear(p)
   await p.locator('input[type=email]').focus(); await p.waitForTimeout(150)
   ok(/Email, edit/.test(await last(p)), `field read with its label: "${await last(p)}"`)
+  await ctx.close()
+}
+
+// ---- read-aloud (screen reader off): keys follow the voice too
+{
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } })
+  await ctx.addInitScript(() => {
+    window.__said = []; window.__seg = 0
+    const fake = { getVoices: () => [], cancel() { window.__cancel = (window.__cancel || 0) + 1 }, pause() {}, resume() {}, addEventListener() {},
+      speak(u) { window.__said.push(u.text); setTimeout(() => u.onend?.({}), 400) } }
+    Object.defineProperty(window, 'speechSynthesis', { value: fake, configurable: true })
+    window.SpeechSynthesisUtterance = function (t) { this.text = t }
+  })
+  const p = await ctx.newPage()
+  await p.goto(BASE + '#/login'); await p.waitForTimeout(1200)
+  await p.keyboard.press('Alt+Shift+R')
+  // wait until the voice reaches the "Forgot password?" link
+  for (let i = 0; i < 40; i++) { if ((await last(p)).includes('Forgot password')) break; await p.waitForTimeout(150) }
+  const reading = await last(p)
+  ok(/Forgot password/.test(reading), `reading reached: "${reading}"`)
+  ok(await p.evaluate(() => document.activeElement?.textContent?.includes('Forgot password')), 'focus is on the link being read')
+  await p.keyboard.press('Enter'); await p.waitForTimeout(900)
+  ok(p.url().includes('forgot-password'), 'Enter opens the link the voice is reading')
+  await p.goto(BASE + '#/login'); await p.waitForTimeout(1200)
+  await p.keyboard.press('Alt+Shift+R'); await p.waitForTimeout(700)
+  const n0 = await p.evaluate(() => window.__said.length)
+  await p.keyboard.press('Tab'); await p.waitForTimeout(300)
+  const t = await last(p)
+  ok(/link|button|edit/.test(t), `Tab stops reading and reads where you land: "${t}"`)
+  await p.waitForTimeout(1500)
+  ok(await p.evaluate((n) => window.__said.length, n0) <= n0 + 2, 'page reading stopped after Tab')
   await ctx.close()
 }
 

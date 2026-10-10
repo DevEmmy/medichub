@@ -103,3 +103,5 @@ h1[tabindex="-1"]:focus, h1[tabindex="-1"]:focus-visible { outline: none !import
 .sr-on .sr-cursor { outline: 3px solid #a3e635 !important; outline-offset: 3px; border-radius: 6px; box-shadow: 0 0 0 6px rgba(10, 31, 26, 0.35); }
 /* Double-tap is "open" for the screen reader, not "zoom" */
 .sr-on, .sr-on body { touch-action: manipulation; }
+/* Text that focus follows while it is read: the reading highlight already shows where you are */
+[data-sr-tab]:focus { outline: none; }
