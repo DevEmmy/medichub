@@ -9,6 +9,7 @@ import { uid } from '../lib/ids'
 import type { Booking, EmailKind, EmailLog, TeamAlerts, TeamMember, TeamRole } from '../types'
 import { AppError, latency, mailer, requireHospitalStaff, text } from './core'
 import { isPremium } from './plans'
+import { notify } from './notifications'
 import { fmtDateLong, fmtTime, today } from '../utils/date'
 
 export const TEAM_ROLES: TeamRole[] = ['Doctor', 'Nurse', 'Front desk', 'Admin', 'Lab', 'Pharmacy', 'Billing', 'Other']
@@ -132,6 +133,42 @@ export async function alertTeam(b: Booking, event: AlertEvent, extra?: { by?: st
       cta: { label: event === 'cancelled' ? 'View bookings' : 'Open booking in portal', path: '/hospital/bookings' },
     })))
   } catch (e) { console.error('[team] alert failed', e) }
+}
+
+/**
+ * Tells the doctor assigned to a booking: an email (to the address the hospital saved for them) and,
+ * once they have a Medic Hub account, a message on their own dashboard. Never throws.
+ */
+export async function alertDoctor(b: Booking, event: 'assigned' | 'cancelled' | 'rescheduled') {
+  try {
+    if (!b.doctorId) return
+    const doc = db.select('hospital_doctors').find((x) => x.id === b.doctorId)
+    const h = db.select('hospitals').find((x) => x.id === b.hospitalId)
+    if (!doc || !h) return
+    const svc = db.select('hospital_services').find((s) => s.id === b.serviceId)
+    const when = `${fmtDateLong(b.date)} at ${fmtTime(b.time)}`
+    const first = doc.name.replace(/^Dr\.?\s*/i, '').split(' ')[0]
+    const title = { assigned: 'New patient for you', cancelled: 'Appointment cancelled', rescheduled: 'Appointment moved' }[event]
+    const line = {
+      assigned: `You will be with ${b.patientName} on ${when} for ${svc?.name ?? 'an appointment'}.`,
+      cancelled: `${b.patientName}'s appointment on ${when} was cancelled. That time is free again.`,
+      rescheduled: `${b.patientName}'s appointment has moved to ${when}.`,
+    }[event]
+    if (doc.userId) {
+      notify(doc.userId, 'booking', title, `${line} Ref ${b.ref}.`, '/doctor')
+    }
+    if (!doc.email) return
+    await deliver(b.hospitalId, {
+      to: doc.email, toName: doc.name, audience: 'team', kind: 'doctor_assigned', bookingId: b.id, replyTo: h.email || undefined,
+      subject: event === 'assigned' ? `You'll see ${b.patientName} · ${fmtTime(b.time)} ${shortDate(b.date)} · ${b.ref}` : `${title}: ${b.patientName} · ${b.ref}`,
+      heading: title,
+      lines: [`Hello Dr ${first},`, line],
+      facts: [['Patient', b.patientName], ['Phone', b.patientPhone || 'Not given'], ['Service', svc?.name ?? 'Appointment'], ['When', when], ['Reference', b.ref],
+        ['Payment', b.paymentStatus === 'paid' ? `${naira(b.amount ?? 0)} paid online` : b.amount ? `${naira(b.amount)} to pay at the hospital` : 'No fee'],
+        ...(b.reason ? [['Reason for visit', b.reason] as [string, string]] : [])],
+      cta: { label: doc.userId ? 'Open my schedule' : 'Create your doctor account', path: doc.userId ? '/doctor' : '/signup?role=doctor' },
+    })
+  } catch (e) { console.error('[team] doctor alert failed', e) }
 }
 
 /** Confirmation and update emails to the patient. Never throws. */

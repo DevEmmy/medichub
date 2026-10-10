@@ -21,6 +21,7 @@ import { useToast } from '../../contexts/ToastContext'
 import { directionsUrl, distanceKm, fmtKm } from '../../utils/geo'
 import { relTime, DAY_NAMES } from '../../utils/date'
 import { cn } from '../../utils/cn'
+import { paymentsAvailable } from '../../services/payments'
 import type { ResourceKey } from '../../types'
 
 const RES: { key: ResourceKey; label: string; icon: typeof Wind }[] = [
@@ -165,15 +166,20 @@ export default function HospitalProfile() {
           <ReviewsSection hospitalId={h.id} publicRecord={h.publicRecord} />
 
           <section aria-labelledby="svc-h">
-            <h2 id="svc-h" className="text-[20px] font-semibold">Services</h2>
+            <h2 id="svc-h" className="text-[20px] font-semibold">Services and prices</h2>
+            <p className="mt-1 text-[13px] text-slate-600">The price you pay when you book is the hospital's own consultation fee, not an extra charge. Tests, scans and drugs the doctor orders are paid at the hospital.</p>
             <ul className="mt-3 divide-y divide-line overflow-hidden rounded-2xl bg-white ring-1 ring-line">
               {h.services.filter((s) => s.active).map((s) => {
                 const dep = h.departments.find((d) => d.id === s.departmentId)
                 return (
                   <li key={s.id} className="flex items-center gap-3 px-4 py-3.5">
                     <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-mist text-brand-700"><Stethoscope size={16} /></span>
-                    <div className="min-w-0 flex-1"><p className="text-[14.5px] font-semibold text-ink">{s.name}</p><p className="text-[12.5px] text-slate-500">{dep?.name ?? s.category}{s.fee && !h.publicRecord ? ` · from ₦${s.fee.toLocaleString('en-NG')}` : ''}</p></div>
-                    {s.bookable ? <button onClick={() => openBook(s.id)} className="btn btn-secondary btn-sm">Book</button> : <span className="text-[12.5px] font-medium text-slate-500">Walk-in</span>}
+                    <div className="min-w-0 flex-1"><p className="text-[14.5px] font-semibold text-ink">{s.name}</p><p className="text-[12.5px] text-slate-500">{dep?.name ?? s.category}</p></div>
+                    {(s.fee || s.bookable) && <span className={cn('shrink-0 text-right text-[13.5px] font-bold tabular', s.fee ? 'text-ink' : 'text-slate-500')} data-testid="service-price">{s.fee ? `₦${s.fee.toLocaleString('en-NG')}` : 'Price on request'}</span>}
+                    {!s.bookable ? <span className="text-[12.5px] font-medium text-slate-500">Walk-in</span>
+                      : (s.fee || !paymentsAvailable()) ? <button onClick={() => openBook(s.id)} className="btn btn-secondary btn-sm">Book</button>
+                      : !s.fee && (h.phone || h.emergencyPhone) ? <a href={`tel:${(h.phone || h.emergencyPhone).replace(/\s/g, '')}`} className="btn btn-secondary btn-sm" aria-label={`Call ${h.name} to ask the price of ${s.name}`}>Call</a>
+                      : <span className="text-[12.5px] font-medium text-slate-500">Walk-in</span>}
                   </li>
                 )
               })}

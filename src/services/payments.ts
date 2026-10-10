@@ -13,7 +13,7 @@ import { uid } from '../lib/ids'
 import type { Booking, HospitalPayout, Payment } from '../types'
 import { AppError, currentUser, latency, payments, requireHospitalStaff, requireRole, text } from './core'
 import { notify } from './notifications'
-import { alertTeam, emailPatient } from './team'
+import { alertDoctor, alertTeam, emailPatient } from './team'
 import { fmtDate, fmtTime } from '../utils/date'
 
 export const HOLD_MINUTES = 30
@@ -24,6 +24,8 @@ export function paymentsAvailable() { return payments.gateway.mode !== 'off' }
 /** Does booking this service require online payment? */
 export function requiresPayment(hospitalId: string, fee?: number) {
   const h = db.select('hospitals').find((x) => x.id === hospitalId)
+  // Payment simulator (demo): every priced service is paid before the booking is confirmed, no bank account needed
+  if (payments.gateway.simulator) return !!(fee && fee > 0 && h)
   if (!(fee && fee > 0 && h?.payoutsEnabled && paymentsAvailable())) return false
   // On the server, also require an account registered with the active gateway (e.g. not a demo test account)
   const p = db.select('hospital_payouts').find((x) => x.hospitalId === hospitalId)
@@ -80,11 +82,11 @@ export const startPayment = rpc('payments.startPayment', async function startPay
   if (b.status !== 'awaiting_payment' || !b.amount) throw new AppError('invalid', 'This booking does not need payment.')
   const payout = db.select('hospital_payouts').find((p) => p.hospitalId === b.hospitalId)
   const h = db.select('hospitals').find((x) => x.id === b.hospitalId)!
-  if (!payout || !h.payoutsEnabled) throw new AppError('unavailable', 'This hospital is not accepting online payments right now.')
+  if (!payments.gateway.simulator && (!payout || !h.payoutsEnabled)) throw new AppError('unavailable', 'This hospital is not accepting online payments right now.')
   const reference = `MH-${b.ref.replace('MED-', '')}-${uid().slice(0, 8).toUpperCase()}`
   const amountKobo = Math.round(b.amount * 100)
   const p: Payment = { id: uid('pay_'), reference, bookingId: b.id, hospitalId: b.hospitalId, patientId: u.id, amountKobo, currency: 'NGN', status: 'initialized', provider: payments.gateway.provider, createdAt: new Date().toISOString() }
-  const { authorizationUrl } = await payments.gateway.initialize({ email: u.email, amountKobo, reference, subaccount: payout.subaccountCode, callbackUrl: payments.callbackUrl, metadata: { bookingId: b.id, bookingRef: b.ref, hospital: h.name } })
+  const { authorizationUrl } = await payments.gateway.initialize({ email: u.email, amountKobo, reference, subaccount: payout?.subaccountCode ?? 'ACCT_simulated', callbackUrl: payments.callbackUrl, metadata: { bookingId: b.id, bookingRef: b.ref, hospital: h.name } })
   db.write(['payments', 'bookings'], (d) => {
     d.payments.push(p)
     const x = d.bookings.find((y) => y.id === b.id)!; x.paymentRef = reference
@@ -136,7 +138,7 @@ export async function settleReference(reference: string): Promise<{ status: 'pai
   const svc = db.select('hospital_services').find((s) => s.id === b.serviceId)
   notify(b.patientId, 'booking', 'Payment received · booking confirmed', `${naira(p.amountKobo / 100)} paid for ${svc?.name ?? 'your appointment'} at ${h.name}, ${fmtDate(b.date)} at ${fmtTime(b.time)}. Ref ${b.ref}.`, `/app/bookings/${b.id}`)
   db.select('hospital_staff').filter((s) => s.hospitalId === b.hospitalId).forEach((s) => notify(s.userId, 'booking', 'New paid booking', `${b.patientName} paid ${naira(p.amountKobo / 100)} for ${svc?.name ?? 'an appointment'} on ${fmtDate(b.date)} at ${fmtTime(b.time)}.`, '/hospital/payments'))
-  { const fresh = db.select('bookings').find((x) => x.id === b.id) ?? b; void alertTeam(fresh, 'paid', { amount: p.amountKobo / 100 }); void emailPatient(fresh, 'paid') }
+  { const fresh = db.select('bookings').find((x) => x.id === b.id) ?? b; void alertTeam(fresh, 'paid', { amount: p.amountKobo / 100 }); void emailPatient(fresh, 'paid'); void alertDoctor(fresh, 'assigned') }
   return { status: 'paid', bookingId: b.id }
 }
 
@@ -185,3 +187,32 @@ export function hospitalPayments(hospitalId: string) {
   requireHospitalStaff(hospitalId)
   return db.select('payments').filter((p) => p.hospitalId === hospitalId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 }
+
+// ---------------- Payment simulator (demo) ----------------
+// Works exactly like a real checkout from the app's point of view: the server creates the payment with the
+// amount from the hospital's price list, the "bank" reports what was paid, and the server checks the two match.
+// To go live, set PAYSTACK_SECRET_KEY on the server: the same flow then runs through Paystack.
+
+/** What the simulated checkout page shows. Amount and hospital come from the server's own payment record. */
+export const simulatedCheckout = rpc('payments.simulatedCheckout', async function simulatedCheckout(reference: string) {
+  text(reference, 80, 'a payment reference', true)
+  const u = requireRole('patient')
+  if (!payments.gateway.simulator) throw new AppError('unavailable', 'This checkout is only for the demo.')
+  const p = db.select('payments').find((x) => x.reference === reference && x.patientId === u.id)
+  if (!p) return null
+  const b = db.select('bookings').find((x) => x.id === p.bookingId)
+  const h = db.select('hospitals').find((x) => x.id === p.hospitalId)
+  const svc = b ? db.select('hospital_services').find((s) => s.id === b.serviceId) : undefined
+  return { reference, amountKobo: p.amountKobo, hospital: h?.name ?? '', service: svc?.name ?? 'Appointment', email: u.email, status: p.status }
+})
+
+/** The patient taps "Pay" (or "Decline") on the simulated checkout. */
+export const completeSimulatedPayment = rpc('payments.completeSimulatedPayment', async function completeSimulatedPayment(reference: string, success: boolean) {
+  text(reference, 80, 'a payment reference', true)
+  const u = requireRole('patient')
+  const p = db.select('payments').find((x) => x.reference === reference && x.patientId === u.id)
+  if (!p || !payments.gateway.simulator) throw new AppError('not_found', 'We could not find that payment.')
+  await latency(700)
+  payments.gateway.simulator.complete(reference, !!success, p.amountKobo)
+  return settleReference(reference)
+})

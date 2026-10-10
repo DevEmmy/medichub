@@ -184,9 +184,11 @@ export const saveService = rpc('hospitals.saveService', async function saveServi
       const x = d.hospital_services.find((y) => y.id === s.id && y.hospitalId === hospitalId)
       if (!x) throw new AppError('not_found', 'Service not found.')
       const { name, category, departmentId, durationMins, fee, bookable, active } = s
-      Object.assign(x, Object.fromEntries(Object.entries({ name, category, departmentId, durationMins, fee, bookable, active }).filter(([, v]) => v !== undefined)))
+      Object.assign(x, Object.fromEntries(Object.entries({ name, category, departmentId, durationMins, bookable, active }).filter(([, v]) => v !== undefined)))
+      // A price of 0 clears it ("price on request": patients are asked to call)
+      if (fee !== undefined && fee !== null) x.fee = fee > 0 ? fee : undefined
     } else {
-      d.hospital_services.push({ id: uid('sv_'), hospitalId, name: s.name.trim(), category: s.category, departmentId: s.departmentId, durationMins: s.durationMins ?? 20, fee: s.fee, bookable: s.bookable ?? true, active: true })
+      d.hospital_services.push({ id: uid('sv_'), hospitalId, name: s.name.trim(), category: s.category, departmentId: s.departmentId, durationMins: s.durationMins ?? 20, fee: s.fee && s.fee > 0 ? s.fee : undefined, bookable: s.bookable ?? true, active: true })
     }
     const h = d.hospitals.find((y) => y.id === hospitalId)!
     h.specialties = [...new Set(d.hospital_services.filter((y) => y.hospitalId === hospitalId && y.active).map((y) => y.category))]
@@ -228,13 +230,23 @@ export const removeDepartment = rpc('hospitals.removeDepartment', async function
 })
 
 export const saveDoctor = rpc('hospitals.saveDoctor', async function saveDoctor(hospitalId: string, doc: Partial<Doctor> & { name: string; specialty: string }) {
-  text(doc?.name, 120, 'a name', true); text(doc.specialty, 120, 'a specialty', true)
+  text(doc?.name, 120, 'a name', true); text(doc.specialty, 120, 'a specialty', true); text(doc.email, 200, 'an email'); text(doc.phone, 40, 'a phone number'); text(doc.departmentId, 100, 'a department')
   requireHospitalStaff(hospitalId)
   await latency()
   if (!doc.name.trim()) throw new AppError('validation', 'Enter the provider\'s name.')
+  const email = doc.email?.trim().toLowerCase() || undefined
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw new AppError('validation', 'Enter a valid email address, like name@gmail.com.')
+  if (email && db.select('hospital_doctors').some((x) => x.email === email && x.id !== doc.id)) throw new AppError('duplicate', `${email} is already used by another doctor.`)
+  if (doc.departmentId && !db.select('hospital_departments').some((x) => x.id === doc.departmentId && x.hospitalId === hospitalId)) throw new AppError('validation', 'Choose one of your departments.')
+  // A doctor who already has a Medic Hub doctor account with this email is linked straight away
+  const account = email ? db.select('users').find((u) => u.email === email && u.role === 'doctor') : undefined
+  const fields = { name: doc.name.trim(), specialty: doc.specialty, departmentId: doc.departmentId || undefined, available: doc.available ?? true, email, phone: doc.phone?.trim() || undefined, userId: account?.id }
   db.write(['hospital_doctors'], (d) => {
-    if (doc.id) Object.assign(d.hospital_doctors.find((x) => x.id === doc.id && x.hospitalId === hospitalId)!, doc)
-    else d.hospital_doctors.push({ id: uid('dr_'), hospitalId, name: doc.name.trim(), specialty: doc.specialty, departmentId: doc.departmentId, available: doc.available ?? true })
+    if (doc.id) {
+      const x = d.hospital_doctors.find((y) => y.id === doc.id && y.hospitalId === hospitalId)
+      if (!x) throw new AppError('not_found', 'Doctor not found.')
+      Object.assign(x, fields, { userId: email === x.email ? (x.userId ?? account?.id) : account?.id })
+    } else d.hospital_doctors.push({ id: uid('dr_'), hospitalId, ...fields })
   })
 })
 export const removeDoctor = rpc('hospitals.removeDoctor', async function removeDoctor(hospitalId: string, id: string) {

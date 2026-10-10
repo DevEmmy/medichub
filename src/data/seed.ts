@@ -11,6 +11,7 @@ export const DEMO_ACCOUNTS = {
   patient: { email: 'amaka@medichub.demo', label: 'Patient', name: 'Amaka Okafor' },
   hospital: { email: 'ops@lagooncrest.demo', label: 'Hospital staff', name: 'Lagoon Crest Specialist Hospital' },
   admin: { email: 'review@medichub.demo', label: 'Platform reviewer', name: 'Medic Hub Trust & Safety' },
+  doctor: { email: 'dr.nwosu@lagooncrest.demo', label: 'Doctor', name: 'Dr. Adaeze Nwosu' },
 }
 
 export const SPECIALTY_SERVICE: Record<string, { name: string; dept: string; bookable: boolean; mins: number; fee?: number }> = {
@@ -104,12 +105,15 @@ function hashStr(s: string) { let h = 2166136261; for (let i = 0; i < s.length; 
 export function slotId(serviceId: string, date: string, time: string) { return `sl_${serviceId}_${date}_${time.replace(':', '')}` }
 
 /** Keeps a rolling 14-day window of appointment slots for every bookable service. Returns true if anything changed. */
+/** The server turns this on for demos (DEMO_EXTRAS), so listed hospitals can take bookings too. */
+export const slotPolicy = { publicRecords: false }
+
 export function ensureSlots(t: Tables): boolean {
   let changed = false
   const start = today()
   const existing = new Set(t.hospital_slots.map((s) => s.id))
   // On the real server, hospitals that haven't joined (public-record listings) get no bookable slots
-  const hospitals = new Map(t.hospitals.filter((h) => typeof window !== 'undefined' || !h.publicRecord).map((h) => [h.id, h]))
+  const hospitals = new Map(t.hospitals.filter((h) => typeof window !== 'undefined' || slotPolicy.publicRecords || !h.publicRecord).map((h) => [h.id, h]))
   const bookedSlotIds = new Set(t.bookings.map((b) => b.slotId))
   const cutoff = addDays(start, -2)
   const before = t.hospital_slots.length
@@ -143,6 +147,12 @@ export function ensureSlots(t: Tables): boolean {
 }
 
 export function buildSeed(): Tables {
+  const t = buildSeedBase()
+  addDemoExtras(t)
+  return t
+}
+
+function buildSeedBase(): Tables {
   const now = new Date().toISOString()
   const t: Tables = {
     users: [], patient_profiles: [], hospitals: [], hospital_staff: [], hospital_departments: [], hospital_services: [],
@@ -238,6 +248,16 @@ export function buildSeed(): Tables {
 
   ensureSlots(t)
 
+  // Demo doctor account: the General practice doctor at Lagoon Crest
+  {
+    let doc = t.hospital_doctors.find((x) => x.hospitalId === 'h_lagooncrest' && x.specialty === 'General practice')
+    if (!doc) { doc = { id: 'dr_h_lagooncrest_gp', hospitalId: 'h_lagooncrest', name: DEMO_ACCOUNTS.doctor.name, specialty: 'General practice', available: true }; t.hospital_doctors.push(doc) }
+    t.hospital_doctors.filter((x) => x.hospitalId === 'h_lagooncrest' && x !== doc && x.name === DEMO_ACCOUNTS.doctor.name).forEach((x) => { x.name = 'Dr. Segun Afolabi' })
+    doc.name = DEMO_ACCOUNTS.doctor.name; doc.email = DEMO_ACCOUNTS.doctor.email; doc.userId = 'u_doctor'; doc.available = true
+    doc.departmentId = t.hospital_services.find((x) => x.hospitalId === 'h_lagooncrest' && x.category === 'General practice')?.departmentId ?? doc.departmentId
+    t.users.push(mkUser('u_doctor', DEMO_ACCOUNTS.doctor.email, 'doctor', DEMO_ACCOUNTS.doctor.name, '+234 803 555 0190'))
+  }
+
   // Bookings
   const svcOf = (hid: string, name: string) => t.hospital_services.find((s) => s.hospitalId === hid && s.name === name)!
   let refN = 0
@@ -252,7 +272,9 @@ export function buildSeed(): Tables {
     if (status !== 'cancelled') slot.booked++
     const u = t.users.find((x) => x.id === patientId)!
     const created = new Date(Date.now() - (Math.abs(dayOffset) + 2) * 86400000).toISOString()
-    const b: Booking = { id: `bk_${refN}`, ref: REFS[refN++], token: `tok${refN}${Math.random().toString(36).slice(2, 10)}`, patientId, patientName: u.name, patientPhone: u.phone, hospitalId: hid, serviceId: svc.id, slotId: id, date, time, reason, status, createdAt: created, updatedAt: created }
+    const docs = t.hospital_doctors.filter((x) => x.hospitalId === hid && ((svc.departmentId && x.departmentId === svc.departmentId) || x.specialty === svc.category))
+    const doc = docs.length ? docs[refN % docs.length] : undefined
+    const b: Booking = { ...(doc ? { doctorId: doc.id, doctorName: doc.name } : {}), id: `bk_${refN}`, ref: REFS[refN++], token: `tok${refN}${Math.random().toString(36).slice(2, 10)}`, patientId, patientName: u.name, patientPhone: u.phone, hospitalId: hid, serviceId: svc.id, slotId: id, date, time, reason, status, createdAt: created, updatedAt: created }
     t.bookings.push(b)
     t.booking_events.push({ id: `be_${b.id}_0`, bookingId: b.id, status: 'confirmed', at: created, by: 'system' })
     if (status !== 'confirmed' && status !== 'pending') t.booking_events.push({ id: `be_${b.id}_1`, bookingId: b.id, status, at: created, by: 'hospital' })
@@ -354,4 +376,31 @@ export function buildPublicDirectory(): Tables {
     bookings: [], booking_events: [], health_profiles: [], health_events: [], emergency_contacts: [], notifications: [],
     hospital_announcements: [], hospital_documents: [], password_resets: [], hospital_reviews: [], payments: [], hospital_payouts: [], hospital_team: [], email_log: [], email_verifications: [],
   }
+}
+
+/**
+ * Demo extras for hospitals listed from public records: sample doctors and indicative prices, so a demo can show
+ * doctor alerts and paying to confirm a booking. Only fills gaps, so anything a hospital has entered itself is kept.
+ * Sample doctors have ids starting with "drs_" and are labelled as samples in the app. Returns true if it changed anything.
+ */
+export function addDemoExtras(t: Pick<Tables, 'hospitals' | 'hospital_services' | 'hospital_doctors' | 'hospital_departments'>): boolean {
+  let changed = false
+  let n = 0
+  for (const h of t.hospitals) {
+    if (!h.publicRecord) continue // hospitals that joined manage their own doctors and prices
+    const services = t.hospital_services.filter((s) => s.hospitalId === h.id)
+    for (const s of services) {
+      const ref = SPECIALTY_SERVICE[s.category]
+      if (s.bookable && !s.fee && ref?.fee) { s.fee = ref.fee; changed = true }
+    }
+    if (t.hospital_doctors.some((d) => d.hospitalId === h.id)) continue
+    const cats = [...new Set(services.filter((s) => s.bookable).map((s) => s.category))]
+    if (!cats.includes('General practice')) cats.unshift('General practice')
+    cats.slice(0, 5).forEach((sp, i) => {
+      const dept = t.hospital_departments.find((d) => d.hospitalId === h.id && d.name === SPECIALTY_SERVICE[sp]?.dept)
+      t.hospital_doctors.push({ id: `drs_${h.id}_${i}`, hospitalId: h.id, name: DOCTOR_NAMES[(n++ * 5 + h.id.length) % DOCTOR_NAMES.length], specialty: sp, departmentId: dept?.id, available: true })
+    })
+    changed = true
+  }
+  return changed
 }

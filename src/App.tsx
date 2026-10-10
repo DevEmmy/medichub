@@ -13,6 +13,7 @@ import { HospitalLayout } from './layouts/HospitalLayout'
 import { AdminLayout } from './layouts/AdminLayout'
 import { RequireRole } from './components/navigation/RequireRole'
 import { ScrollToTop } from './components/navigation/ScrollToTop'
+import { ServerWaking } from './components/navigation/ServerWaking'
 import { Spinner } from './components/ui/States'
 
 const Landing = lazy(() => import('./pages/public/Landing'))
@@ -55,6 +56,7 @@ const Scan = lazy(() => import('./pages/public/Scan'))
 const PassCheck = lazy(() => import('./pages/public/PassCheck'))
 const PaymentVerify = lazy(() => import('./pages/payments/PaymentVerify'))
 const TestCheckout = lazy(() => import('./pages/payments/TestCheckout'))
+const DoctorSchedule = lazy(() => import('./pages/doctor/Schedule'))
 const HospitalPayments = lazy(() => import('./pages/hospital/Payments'))
 const HospitalTeam = lazy(() => import('./pages/hospital/Team'))
 const VerifyEmail = lazy(() => import('./pages/public/VerifyEmail'))
@@ -71,6 +73,7 @@ export default function App() {
     <MotionConfig reducedMotion="user">
       <HashRouter>
         <ScrollToTop />
+        <ServerWaking />
         <LanguageProvider>
         <A11yProvider>
         <ToastProvider>
@@ -109,6 +112,7 @@ export default function App() {
                       <Route path="/app/health" element={<RequireRole roles={['patient']}><HealthVault /></RequireRole>} />
                       <Route path="/app/notifications" element={<RequireRole roles={['patient']}><Notifications /></RequireRole>} />
                       <Route path="/app/profile" element={<RequireRole roles={['patient']}><Profile /></RequireRole>} />
+                      <Route path="/doctor" element={<RequireRole roles={['doctor']}><DoctorSchedule /></RequireRole>} />
                     </Route>
 
                     <Route element={<RequireRole roles={['hospital']} needsHospital><HospitalLayout /></RequireRole>}>

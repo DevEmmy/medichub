@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { DEMO } from '../../config'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Eye, EyeOff, UserRound, Building2, ShieldCheck } from 'lucide-react'
+import { Eye, EyeOff, UserRound, Building2, ShieldCheck, Stethoscope } from 'lucide-react'
 import { AuthShell } from '../../layouts/AuthShell'
 import { Field } from '../../components/ui/Field'
 import { Spinner } from '../../components/ui/States'
@@ -49,8 +49,8 @@ export default function Login() {
       </form>
       {DEMO && <div className="mt-8">
         <p className="eyebrow text-center">Or use a demo account</p>
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          {([['patient', UserRound], ['hospital', Building2], ['admin', ShieldCheck]] as const).map(([k, I]) => (
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {([['patient', UserRound], ['hospital', Building2], ['doctor', Stethoscope], ['admin', ShieldCheck]] as const).map(([k, I]) => (
             <button key={k} type="button" disabled={loading} onClick={() => { setEmail(DEMO_ACCOUNTS[k].email); setPassword(DEMO_PASSWORD); go(DEMO_ACCOUNTS[k].email, DEMO_PASSWORD) }}
               className="flex flex-col items-center gap-1.5 rounded-2xl bg-white p-3 text-[12.5px] font-semibold text-ink shadow-soft ring-1 ring-black/5 transition hover:-translate-y-0.5">
               <I size={18} className="text-brand-700" />{DEMO_ACCOUNTS[k].label.split(' ')[0]}

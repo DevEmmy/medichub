@@ -7,6 +7,7 @@ import { Toggle } from '../components/ui/Field'
 import { useT } from '../i18n/LanguageContext'
 import { canSpeak, hasVoiceFor, onSpeech, pauseSpeaking, resumeSpeaking, setRate, speak, speakSegments, SPEECH_LANG, stopSpeaking } from '../lib/speech'
 import { cn } from '../utils/cn'
+import { startScreenReader } from '../lib/screenReader'
 
 export interface A11ySettings { textScale: 1 | 1.15 | 1.3; contrast: boolean; reduceMotion: boolean; underlineLinks: boolean; talkBack: boolean; rate: number }
 const DEFAULTS: A11ySettings = { textScale: 1, contrast: false, reduceMotion: false, underlineLinks: false, talkBack: false, rate: 1 }
@@ -16,7 +17,7 @@ interface Ctx {
   settings: A11ySettings
   update: (p: Partial<A11ySettings>) => void
   openPanel: () => void
-  readPage: () => void
+  readPage: (from?: HTMLElement | null) => void
   /** Read any text aloud in the current app language. */
   say: (text: string, id?: string) => void
   reading: { speaking: boolean; paused: boolean; id: string | null }
@@ -61,13 +62,6 @@ function collect(root: Element): { el: HTMLElement; text: string }[] {
   }).filter((x) => x.text.replace(/[\s.,]/g, '').length > 0)
 }
 
-function accessibleName(el: HTMLElement): string {
-  const label = el.getAttribute('aria-label') || (el.id && document.querySelector<HTMLElement>(`label[for="${el.id}"]`)?.innerText) || el.getAttribute('title') || (el as HTMLInputElement).placeholder || (el as HTMLImageElement).alt || el.innerText || ''
-  const role = el.getAttribute('role') || ({ A: 'link', BUTTON: 'button', INPUT: 'text field', TEXTAREA: 'text field', SELECT: 'menu' } as Record<string, string>)[el.tagName] || ''
-  const state = el.getAttribute('aria-checked') === 'true' || el.getAttribute('aria-pressed') === 'true' ? ', on' : el.getAttribute('aria-checked') === 'false' ? ', off' : ''
-  return `${label.replace(/\s+/g, ' ').trim()}${role ? ', ' + role : ''}${state}`
-}
-
 export function A11yProvider({ children }: { children: ReactNode }) {
   const { lang } = useT()
   const [settings, setSettings] = useState<A11ySettings>(() => {
@@ -78,6 +72,7 @@ export function A11yProvider({ children }: { children: ReactNode }) {
   const [progress, setProgress] = useState<{ i: number; n: number } | null>(null)
   const [announce, setAnnounce] = useState('')
   const marked = useRef<HTMLElement | null>(null)
+  const readFromRef = useRef<(el: HTMLElement | null) => void>(() => {})
   const voiceLang = SPEECH_LANG[lang]
 
   useEffect(() => onSpeech(setReading), [])
@@ -96,9 +91,10 @@ export function A11yProvider({ children }: { children: ReactNode }) {
   const unmark = () => { marked.current?.classList.remove('a11y-reading'); marked.current = null }
   const say = useCallback((text: string, id?: string) => { unmark(); setProgress(null); void speak(text, voiceLang, id) }, [voiceLang])
 
-  const readPage = useCallback(() => {
+  const readPage = useCallback((from?: HTMLElement | null) => {
     const root = document.querySelector('main') ?? document.body
-    const items = collect(root)
+    let items = collect(root)
+    if (from) { const i = items.findIndex((x) => x.el === from || x.el.contains(from) || !!(from.compareDocumentPosition(x.el) & Node.DOCUMENT_POSITION_FOLLOWING)); if (i > 0) items = items.slice(i) }
     if (!items.length) return
     setPanel(false)
     setProgress({ i: 0, n: items.length })
@@ -114,25 +110,18 @@ export function A11yProvider({ children }: { children: ReactNode }) {
     }).then(() => { unmark(); setProgress(null) })
   }, [voiceLang, settings.reduceMotion])
   const stop = () => { stopSpeaking(); unmark(); setProgress(null) }
+  readFromRef.current = readPage
 
-  // Talk back: speak whatever gets keyboard focus or is tapped
+  // Screen reader mode (NVDA-style keys on a computer, TalkBack-style gestures on a phone)
   useEffect(() => {
     if (!settings.talkBack) return
-    const onFocus = (e: FocusEvent) => {
-      const el = e.target as HTMLElement
-      if (!el?.matches?.('a,button,input,select,textarea,[tabindex],[role=button],[role=switch],[role=tab]')) return
-      void speak(accessibleName(el), voiceLang, 'focus')
-    }
-    const onClick = (e: MouseEvent) => {
-      const t = e.target as HTMLElement
-      if (t.closest('a,button,input,select,textarea,[role=button],[role=switch]')) return
-      const block = t.closest<HTMLElement>(BLOCKS) ?? t
-      const text = block.innerText?.trim()
-      if (text && text.length < 2000) { unmark(); block.classList.add('a11y-reading'); marked.current = block; void speak(text, voiceLang, 'tap').then(unmark) }
-    }
-    document.addEventListener('focusin', onFocus)
-    document.addEventListener('click', onClick, true)
-    return () => { document.removeEventListener('focusin', onFocus); document.removeEventListener('click', onClick, true) }
+    const stopAll = startScreenReader({
+      say: (t) => { unmark(); setProgress(null); void speak(t, voiceLang, 'sr') },
+      stop: () => { stopSpeaking(); unmark(); setProgress(null) },
+      readFrom: (el) => readFromRef.current(el),
+    })
+    void speak('Screen reader on. Press Tab or the down arrow to move, Enter to open. On a phone, swipe right to move and double-tap to open.', voiceLang, 'sr')
+    return stopAll
   }, [settings.talkBack, voiceLang])
 
   // Screen readers: announce each new page and move focus to its heading
@@ -148,7 +137,7 @@ export function A11yProvider({ children }: { children: ReactNode }) {
         if (!h.hasAttribute('tabindex')) h.setAttribute('tabindex', '-1')
         h.focus({ preventScroll: true })
       }
-      if (settings.talkBack) void speak(document.title, voiceLang, 'route')
+      if (settings.talkBack) void speak(`${document.title.replace(/ · Medic Hub$/, '')} page. ${h?.innerText ? h.innerText + ', heading level 1.' : ''}`, voiceLang, 'route')
     }, 450)
     return () => clearTimeout(t)
   }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -159,10 +148,11 @@ export function A11yProvider({ children }: { children: ReactNode }) {
       if (!e.altKey || !e.shiftKey) return
       if (e.code === 'KeyA') { e.preventDefault(); setPanel(true) }
       if (e.code === 'KeyR') { e.preventDefault(); readPage() }
+      if (e.code === 'KeyS') { e.preventDefault(); update({ talkBack: !settings.talkBack }) }
     }
     window.addEventListener('keydown', k)
     return () => window.removeEventListener('keydown', k)
-  }, [readPage])
+  }, [readPage, settings.talkBack, update])
 
   const voiceOk = hasVoiceFor(voiceLang)
   return (
@@ -191,7 +181,7 @@ export function A11yProvider({ children }: { children: ReactNode }) {
             <p className="mt-1 text-[13px] text-white/70">Medic Hub reads the page to you, highlighting each part as it goes.</p>
             {canSpeak() ? (
               <>
-                <button onClick={readPage} className="btn btn-lime mt-3 w-full justify-center" data-testid="read-page"><Play size={16} /> Read this page aloud</button>
+                <button onClick={() => readPage()} className="btn btn-lime mt-3 w-full justify-center" data-testid="read-page"><Play size={16} /> Read this page aloud</button>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-[12.5px]">
                   <span className="text-white/70">Speed</span>
                   {[0.8, 1, 1.25, 1.5].map((r) => <button key={r} onClick={() => update({ rate: r })} aria-pressed={settings.rate === r} className={cn('rounded-full px-2.5 py-1 font-bold', settings.rate === r ? 'bg-lime-400 text-ink' : 'bg-white/10 hover:bg-white/20')}>{r}×</button>)}
@@ -202,7 +192,7 @@ export function A11yProvider({ children }: { children: ReactNode }) {
           </section>
 
           <section className="space-y-4">
-            <Row icon={Ear}><Toggle checked={settings.talkBack} onChange={(v) => update({ talkBack: v })} label="Talk back" description="Speaks every button and link you move to, and any text you tap." /></Row>
+            <Row icon={Ear}><Toggle checked={settings.talkBack} onChange={(v) => update({ talkBack: v })} label="Screen reader" description="Works like NVDA. Computer: Tab or ↓ moves and reads, Enter opens, H jumps to headings, Ctrl stops. Phone: tap once to hear, double-tap to open, swipe right or left to move." /></Row>
             <Row icon={Type}>
               <div className="flex-1">
                 <p className="text-[14px] font-medium text-ink">Text size</p>
@@ -218,7 +208,7 @@ export function A11yProvider({ children }: { children: ReactNode }) {
             <Row icon={Wind}><Toggle checked={settings.reduceMotion} onChange={(v) => update({ reduceMotion: v })} label="Reduce motion" description="Stops sliding photos and animations." /></Row>
           </section>
 
-          <p className="rounded-2xl bg-canvas p-3 text-[12.5px] leading-relaxed text-slate-600 ring-1 ring-line">Medic Hub also works with your phone's own screen reader: <strong>TalkBack</strong> on Android and <strong>VoiceOver</strong> on iPhone. Keyboard: <kbd className="rounded bg-white px-1 ring-1 ring-line">Alt</kbd>+<kbd className="rounded bg-white px-1 ring-1 ring-line">Shift</kbd>+<kbd className="rounded bg-white px-1 ring-1 ring-line">R</kbd> reads the page, <kbd className="rounded bg-white px-1 ring-1 ring-line">Alt</kbd>+<kbd className="rounded bg-white px-1 ring-1 ring-line">Shift</kbd>+<kbd className="rounded bg-white px-1 ring-1 ring-line">A</kbd> opens this panel.</p>
+          <p className="rounded-2xl bg-canvas p-3 text-[12.5px] leading-relaxed text-slate-600 ring-1 ring-line">Medic Hub also works with real screen readers: <strong>NVDA</strong> or <strong>JAWS</strong> on Windows, <strong>TalkBack</strong> on Android and <strong>VoiceOver</strong> on iPhone. Keyboard: <kbd className="rounded bg-white px-1 ring-1 ring-line">Alt</kbd>+<kbd className="rounded bg-white px-1 ring-1 ring-line">Shift</kbd>+<kbd className="rounded bg-white px-1 ring-1 ring-line">S</kbd> turns the screen reader on or off, <kbd className="rounded bg-white px-1 ring-1 ring-line">Alt</kbd>+<kbd className="rounded bg-white px-1 ring-1 ring-line">Shift</kbd>+<kbd className="rounded bg-white px-1 ring-1 ring-line">R</kbd> reads the page, <kbd className="rounded bg-white px-1 ring-1 ring-line">Alt</kbd>+<kbd className="rounded bg-white px-1 ring-1 ring-line">Shift</kbd>+<kbd className="rounded bg-white px-1 ring-1 ring-line">A</kbd> opens this panel.</p>
           <button onClick={() => update(DEFAULTS)} className="btn btn-ghost btn-sm"><RotateCcw size={14} /> Reset to default</button>
         </div>
       </Modal>

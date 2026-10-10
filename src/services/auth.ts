@@ -41,10 +41,14 @@ export const signUp = rpc('auth.signUp', async function signUp(input: { name: st
   const pwErr = validatePassword(input.password)
   if (pwErr) throw new AppError('validation', pwErr)
   if (db.select('users').some((u) => u.email === email)) throw new AppError('exists', 'An account with this email already exists. Sign in instead.')
+  // Doctors join through their hospital: the hospital adds them (with this email) under Hospital profile › Doctors
+  const doctorRows = input.role === 'doctor' ? db.select('hospital_doctors').filter((d) => d.email === email && !d.userId) : []
+  if (input.role === 'doctor' && !doctorRows.length) throw new AppError('not_invited', "No hospital has added this email for a doctor yet. Ask your hospital to add you under Hospital profile › Doctors, using this exact email, then try again.")
   const id = uid('u_')
   const passwordHash = await hashPasswordStrong(input.password)
   const now = new Date().toISOString()
-  db.write(['users', 'patient_profiles', 'health_profiles'], (d) => {
+  db.write(['users', 'patient_profiles', 'health_profiles', 'hospital_doctors'], (d) => {
+    d.hospital_doctors.forEach((x) => { if (doctorRows.some((r) => r.id === x.id)) x.userId = id })
     d.users.push({ id, email, passwordHash, role: input.role, name: input.name.trim(), phone: input.phone, createdAt: now })
     if (input.role === 'patient') {
       d.patient_profiles.push({ userId: id, onboarded: false })
@@ -53,8 +57,11 @@ export const signUp = rpc('auth.signUp', async function signUp(input: { name: st
   })
   setSession({ userId: id, createdAt: now })
   const created = db.select('users').find((u) => u.id === id)!
-  const verifyToken = await sendWelcome(created)
-  notify(id, 'system', 'Welcome to Medic Hub', input.role === 'hospital' ? 'Set up your facility to start receiving bookings.' : 'Add your health details so they are ready when you need them.', input.role === 'hospital' ? '/hospital/onboarding' : '/app/health')
+  // Real server: send the welcome email in the background so creating the account is instant
+  const verifyToken = mailer.enabled ? (void sendWelcome(created).catch(() => {}), null) : await sendWelcome(created)
+  notify(id, 'system', 'Welcome to Medic Hub',
+    input.role === 'hospital' ? 'Set up your facility to start receiving bookings.' : input.role === 'doctor' ? 'Your schedule shows every patient booked with you. We also email you each new booking.' : 'Add your health details so they are ready when you need them.',
+    input.role === 'hospital' ? '/hospital/onboarding' : input.role === 'doctor' ? '/doctor' : '/app/health')
   // The demo has no email provider, so it hands the confirmation link back to show on screen
   return { ...toPublic(created), ...(verifyToken ? { demoVerifyToken: verifyToken } : {}) }
 })

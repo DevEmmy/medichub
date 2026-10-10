@@ -42,6 +42,7 @@ export function useAuth() {
 export function homeFor(role?: Role | null, hospitalId?: string | null) {
   if (role === 'hospital') return hospitalId ? '/hospital' : '/hospital/onboarding'
   if (role === 'admin') return '/admin'
+  if (role === 'doctor') return '/doctor'
   if (role === 'patient') return '/app'
   return '/'
 }

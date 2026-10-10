@@ -4,9 +4,9 @@ import { bookingRef, secureToken, uid } from '../lib/ids'
 import type { Booking, BookingStatus, User } from '../types'
 import { AppError, ENUMS, currentUser, latency, oneOf, requireHospitalStaff, requireRole, text } from './core'
 import { notify } from './notifications'
-import { refundPayment, requiresPayment } from './payments'
+import { paymentsAvailable, refundPayment, requiresPayment } from './payments'
 import { fmtDate, fmtTime, nowHHMM, today } from '../utils/date'
-import { alertTeam, emailPatient } from './team'
+import { alertDoctor, alertTeam, emailPatient } from './team'
 
 export interface BookingView extends Booking {
   hospitalName: string
@@ -18,6 +18,36 @@ export interface BookingView extends Booking {
   serviceName: string
   departmentName?: string
   demo?: boolean
+}
+
+/** Doctors who can see patients for this service: same department (or specialty), marked available. */
+export function doctorsForService(hospitalId: string, serviceId: string) {
+  const svc = db.select('hospital_services').find((s) => s.id === serviceId && s.hospitalId === hospitalId)
+  if (!svc) return []
+  const all = db.select('hospital_doctors').filter((d) => d.hospitalId === hospitalId && d.available)
+  const match = all.filter((d) => (svc.departmentId && d.departmentId === svc.departmentId) || d.specialty === svc.category)
+  return (match.length ? match : all.filter((d) => d.specialty === 'General practice')).sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/** The patient's chosen doctor, or the matching doctor with the fewest patients that day. */
+function pickDoctor(hospitalId: string, serviceId: string, date: string, wanted?: string) {
+  const options = doctorsForService(hospitalId, serviceId)
+  if (wanted) {
+    const d = options.find((x) => x.id === wanted)
+    if (!d) throw new AppError('unavailable', 'That doctor is not available for this service. Choose another doctor or "Any available doctor".')
+    return d
+  }
+  if (!options.length) return undefined
+  const load = (id: string) => db.select('bookings').filter((b) => b.doctorId === id && b.date === date && b.status !== 'cancelled').length
+  return [...options].sort((a, b) => load(a.id) - load(b.id))[0]
+}
+
+/** What the patient sees for a service: its price, or a number to call when the hospital hasn't set one. */
+export function priceOf(hospitalId: string, serviceId: string): { fee?: number; callTo?: string } {
+  const svc = db.select('hospital_services').find((s) => s.id === serviceId)
+  if (svc?.fee && svc.fee > 0) return { fee: svc.fee }
+  const h = db.select('hospitals').find((x) => x.id === hospitalId)
+  return { callTo: h?.phone || h?.emergencyPhone }
 }
 
 function enrich(b: Booking): BookingView {
@@ -90,9 +120,9 @@ export function isUpcoming(b: Booking) {
   return (b.status === 'awaiting_payment' || b.status === 'confirmed' || b.status === 'pending' || b.status === 'checked_in' || b.status === 'in_consultation') && (b.date > today() || (b.date === today()))
 }
 
-export const createBooking = rpc('bookings.createBooking', async function createBooking(input: { hospitalId: string; serviceId: string; slotId: string; reason?: string; phone?: string }): Promise<BookingView> {
+export const createBooking = rpc('bookings.createBooking', async function createBooking(input: { hospitalId: string; serviceId: string; slotId: string; reason?: string; phone?: string; doctorId?: string }): Promise<BookingView> {
   const u = requireRole('patient')
-  text(input?.slotId, 100, 'a time', true); text(input.hospitalId, 100, 'a hospital', true); text(input.serviceId, 100, 'a service', true); text(input.reason, 500, 'a reason'); text(input.phone, 40, 'a phone number')
+  text(input?.slotId, 100, 'a time', true); text(input.hospitalId, 100, 'a hospital', true); text(input.serviceId, 100, 'a service', true); text(input.reason, 500, 'a reason'); text(input.phone, 40, 'a phone number'); text(input.doctorId, 100, 'a doctor')
   await latency(650)
   return enrich(placeBooking(u, input, 'web'))
 })
@@ -101,7 +131,7 @@ export const createBooking = rpc('bookings.createBooking', async function create
  * Books a slot for a patient. Shared by the website, the USSD menu and SMS.
  * Phone channels never take online payment: any fee is paid at the hospital.
  */
-export function placeBooking(u: User, input: { hospitalId: string; serviceId: string; slotId: string; reason?: string; phone?: string }, channel: 'web' | 'ussd' | 'sms'): Booking {
+export function placeBooking(u: User, input: { hospitalId: string; serviceId: string; slotId: string; reason?: string; phone?: string; doctorId?: string }, channel: 'web' | 'ussd' | 'sms'): Booking {
   const slot = db.select('hospital_slots').find((s) => s.id === input.slotId && s.hospitalId === input.hospitalId && s.serviceId === input.serviceId)
   if (!slot) throw new AppError('not_found', 'That time is no longer offered. Pick another time.')
   if (slot.date < today() || (slot.date === today() && slot.time <= nowHHMM())) throw new AppError('past', 'That time has already passed. Pick a later time.')
@@ -114,10 +144,14 @@ export function placeBooking(u: User, input: { hospitalId: string; serviceId: st
   while (db.select('bookings').some((b) => b.ref === ref)) ref = bookingRef()
   const now = new Date().toISOString()
   const svc = db.select('hospital_services').find((s) => s.id === slot.serviceId)
+  // The price always comes from the hospital's own price list on the server, never from the browser
   const fee = svc?.fee && svc.fee > 0 ? svc.fee : undefined
+  if (channel === 'web' && !fee && paymentsAvailable()) throw new AppError('call_first', `${h.name} hasn't listed a price for ${svc?.name ?? 'this service'} yet. Call ${h.phone || 'the hospital'} to ask before you book.`)
   const mustPay = channel === 'web' && requiresPayment(h.id, fee)
+  const doctor = pickDoctor(h.id, slot.serviceId, slot.date, input.doctorId)
   const status: BookingStatus = mustPay ? 'awaiting_payment' : h.autoConfirm ? 'confirmed' : 'pending'
   const booking: Booking = { id: uid('bk_'), ref, token: secureToken(), patientId: u.id, patientName: u.name, patientPhone: input.phone || u.phone, hospitalId: h.id, serviceId: slot.serviceId, slotId: slot.id, date: slot.date, time: slot.time, reason: input.reason?.trim() || undefined, status, createdAt: now, updatedAt: now,
+    ...(doctor ? { doctorId: doctor.id, doctorName: doctor.name } : {}),
     ...(channel !== 'web' ? { channel } : {}),
     ...(fee ? { amount: fee, paymentStatus: 'unpaid' as const, payAtHospital: !mustPay } : {}) }
   db.write(['bookings', 'booking_events', 'hospital_slots'], (d) => {
@@ -131,6 +165,7 @@ export function placeBooking(u: User, input: { hospitalId: string; serviceId: st
   notify(u.id, 'booking', status === 'confirmed' ? 'Booking confirmed' : 'Booking requested', `${svc?.name} at ${h.name}, ${fmtDate(slot.date)} at ${fmtTime(slot.time)}. Ref ${ref}.`, `/app/bookings/${booking.id}`)
   db.select('hospital_staff').filter((s) => s.hospitalId === h.id).forEach((s) => notify(s.userId, 'booking', channel === 'web' ? 'New booking' : `New ${channel.toUpperCase()} booking`, `${u.name} booked ${svc?.name} for ${fmtDate(slot.date)} at ${fmtTime(slot.time)}${channel === 'web' ? '' : ` by ${channel === 'ussd' ? 'USSD' : 'SMS'}`}.`, '/hospital/bookings'))
   void alertTeam(booking, 'new')
+  void alertDoctor(booking, 'assigned')
   if (!u.viaPhone) void emailPatient(booking, status === 'confirmed' ? 'confirmed' : 'requested')
   return booking
 }
@@ -144,6 +179,7 @@ export async function cancelAsPatient(u: User, id: string, by = 'the patient') {
   if (b.paymentStatus === 'paid' && b.paymentRef) await refundPayment(b.paymentRef, 'You cancelled the appointment.')
   db.select('hospital_staff').filter((s) => s.hospitalId === b.hospitalId).forEach((s) => notify(s.userId, 'booking', 'Booking cancelled', `${b.patientName} cancelled ${b.ref}.`, '/hospital/bookings'))
   void alertTeam(b, 'cancelled', { by })
+  if (b.status !== 'awaiting_payment') void alertDoctor(b, 'cancelled')
   return b
 }
 
@@ -162,6 +198,18 @@ function transition(b: Booking, status: BookingStatus, by: 'patient' | 'hospital
     d.booking_events.push({ id: uid('be_'), bookingId: b.id, status, at: now, by, note })
     if (releases) { const s = d.hospital_slots.find((y) => y.id === b.slotId); if (s && s.booked > 0) s.booked-- }
   })
+}
+
+// ---------------- Doctor ----------------
+/** Every booking assigned to the signed-in doctor, soonest first. */
+export function myDoctorSchedule(): { doctors: { id: string; name: string; hospitalName: string }[]; bookings: BookingView[] } {
+  const u = requireRole('doctor')
+  const mine = db.select('hospital_doctors').filter((d) => d.userId === u.id)
+  const ids = new Set(mine.map((d) => d.id))
+  return {
+    doctors: mine.map((d) => ({ id: d.id, name: d.name, hospitalName: db.select('hospitals').find((h) => h.id === d.hospitalId)?.name ?? '' })),
+    bookings: db.select('bookings').filter((b) => b.doctorId && ids.has(b.doctorId) && b.status !== 'awaiting_payment').map(enrich).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)),
+  }
 }
 
 // ---------------- Hospital ----------------
@@ -203,7 +251,7 @@ export const setBookingStatus = rpc('bookings.setBookingStatus', async function 
   const m = STATUS_MSG[status]
   if (m) notify(b.patientId, 'booking', m[0], `${h.name} · ${b.ref}. ${note || m[1]}`, `/app/bookings/${b.id}`)
   if (status === 'confirmed') void emailPatient(b, 'confirmed')
-  if (status === 'cancelled') { void emailPatient(b, 'cancelled', note); void alertTeam(b, 'cancelled', { by: 'your team', note }) }
+  if (status === 'cancelled') { void emailPatient(b, 'cancelled', note); void alertTeam(b, 'cancelled', { by: 'your team', note }); void alertDoctor(b, 'cancelled') }
   if (status === 'completed') {
     const svc = db.select('hospital_services').find((s) => s.id === b.serviceId)
     db.write(['health_events'], (d) => d.health_events.push({ id: uid('he_'), userId: b.patientId, type: 'visit', title: svc?.name ?? 'Hospital visit', detail: 'Visit completed.', date: b.date, place: h.name }))
@@ -228,7 +276,7 @@ export const rescheduleBooking = rpc('bookings.rescheduleBooking', async functio
   })
   notify(b.patientId, 'booking', 'Your appointment has been updated', `${b.ref} moved to ${fmtDate(ns.date)} at ${fmtTime(ns.time)}.`, `/app/bookings/${id}`)
   const moved = db.select('bookings').find((x) => x.id === id)
-  if (moved) { void alertTeam(moved, 'rescheduled'); void emailPatient(moved, 'rescheduled') }
+  if (moved) { void alertTeam(moved, 'rescheduled'); void emailPatient(moved, 'rescheduled'); void alertDoctor(moved, 'rescheduled') }
 })
 
 /** Check-in lookup. Accepts a booking reference ("MED-7X82K9") or the full QR payload. */

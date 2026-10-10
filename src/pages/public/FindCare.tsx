@@ -114,7 +114,7 @@ export default function FindCare() {
         <img src={emergencyMode ? SCENES.emergencyEntrance : SCENES.nurseWard} alt="" className="absolute inset-y-0 right-0 h-full w-full object-cover opacity-40 sm:w-[55%] sm:opacity-80 sm:[mask-image:linear-gradient(90deg,transparent,black_40%)]" />
         <div className="absolute inset-0 adire opacity-40 [mask-image:linear-gradient(90deg,black,transparent_70%)]" aria-hidden />
         <div className="relative max-w-lg">
-          <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-lime-300">{emergencyMode ? 'Emergency' : `${(all ?? []).length} hospitals`}</p>
+          <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-lime-300">{emergencyMode ? 'Emergency' : 'Find care'}</p>
           <h1 className="mt-1 text-[32px] font-extrabold leading-[1.02] tracking-[-0.02em] text-white sm:text-[44px]">{emergencyMode ? 'Emergency care near you' : <>Find the right care, <span className="text-lime-400">fast.</span></>}</h1>
           <p className="mt-2 text-[14.5px] text-white/70">{emergencyMode ? 'Open emergency units first, with direct lines.' : 'Live status, real services and open slots, closest first.'}</p>
         </div>

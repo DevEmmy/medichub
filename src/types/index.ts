@@ -1,4 +1,4 @@
-export type Role = 'patient' | 'hospital' | 'admin'
+export type Role = 'patient' | 'hospital' | 'admin' | 'doctor'
 
 export interface User {
   id: string
@@ -116,7 +116,7 @@ export interface TeamMember {
   departmentId?: string
   alerts: TeamAlerts; active: boolean; lastDigestOn?: string; createdAt: string
 }
-export type EmailKind = 'new_booking' | 'paid' | 'cancelled' | 'rescheduled' | 'daily_schedule' | 'test' | 'patient_confirmation' | 'patient_update'
+export type EmailKind = 'doctor_assigned' | 'new_booking' | 'paid' | 'cancelled' | 'rescheduled' | 'daily_schedule' | 'test' | 'patient_confirmation' | 'patient_update'
 export interface EmailLog {
   id: string; hospitalId: string; bookingId?: string; toEmail: string; toName?: string
   audience: 'team' | 'patient'; kind: EmailKind; subject: string; body: string
@@ -125,7 +125,13 @@ export interface EmailLog {
 
 export interface EmailVerification { token: string; userId: string; expiresAt: string; used: boolean }
 
-export interface Doctor { id: string; hospitalId: string; name: string; specialty: string; departmentId?: string; available: boolean }
+export interface Doctor {
+  id: string; hospitalId: string; name: string; specialty: string; departmentId?: string; available: boolean
+  /** Where appointment alerts go (Gmail or any address). The doctor signs up with this email to get their own dashboard. */
+  email?: string; phone?: string
+  /** The doctor's Medic Hub account, once they sign up with the email above */
+  userId?: string
+}
 
 export type EmergencyLevel = 'open' | 'busy' | 'closed'
 export type Availability = 'available' | 'limited' | 'unavailable'
@@ -179,6 +185,9 @@ export interface Booking {
   updatedAt: string
   /** Automation: day-before reminder already sent */
   remindedAt?: string
+  /** The doctor who will see the patient */
+  doctorId?: string
+  doctorName?: string
   /** Payment: fee in naira when the service has a price */
   amount?: number
   paymentStatus?: PaymentStatus

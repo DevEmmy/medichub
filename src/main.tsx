@@ -22,16 +22,28 @@ function bootError(retry: () => void) {
   )
 }
 
+function waking() {
+  root.render(
+    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, fontFamily: 'Inter, system-ui, sans-serif', textAlign: 'center', background: '#FBF8F1' }} role="status">
+      <div><p style={{ fontSize: 22, fontWeight: 700, color: '#06281F' }}>Medic Hub</p><p style={{ color: '#555', marginTop: 8 }}>Waking up the server. The first visit after a quiet spell can take up to a minute.</p>
+        <p style={{ color: '#555', marginTop: 4 }}>In an emergency, call the nearest hospital emergency unit or 112.</p></div>
+    </div>,
+  )
+}
+
 async function bootBackend() {
   db.initClient()
+  const wake = setTimeout(waking, 2500)
   try {
-    const r = await api<{ data: Partial<Tables>; userId: string | null; payments?: 'off' | 'test' | 'live' }>('/sync')
-    payments.gateway = { ...payments.gateway, mode: r.payments ?? 'off' }
+    const r = await api<{ data: Partial<Tables>; userId: string | null; payments?: 'off' | 'test' | 'live'; simulator?: boolean }>('/sync')
+    // The browser only needs to know how payments behave; the real gateway (simulator or Paystack) runs on the server
+    payments.gateway = { ...payments.gateway, mode: r.payments ?? 'off', ...(r.simulator ? { simulator: { complete: () => {} } } : {}) }
     const s = getSession()
     if (!r.userId) { if (s || getToken()) { setToken(null); setSession(null) } }
     else if (!s || s.userId !== r.userId) setSession({ userId: r.userId, createdAt: new Date().toISOString() })
     db.hydrate(r.data)
-  } catch { return bootError(() => { void bootBackend() }) }
+  } catch { clearTimeout(wake); return bootError(() => { void bootBackend() }) }
+  clearTimeout(wake)
   render()
   // Realtime: the server says which tables changed; we re-fetch only what this user may see.
   let queued = new Set<TableName>(); let t: ReturnType<typeof setTimeout> | null = null

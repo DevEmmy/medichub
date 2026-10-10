@@ -98,3 +98,8 @@
 @media (prefers-reduced-motion: reduce) { .a11y-reading { scroll-behavior: auto; } }
 /* Headings receive focus on page change (for screen readers); no visible ring for that programmatic focus */
 h1[tabindex="-1"]:focus, h1[tabindex="-1"]:focus-visible { outline: none !important; box-shadow: none !important; }
+
+/* Built-in screen reader: the item being read */
+.sr-on .sr-cursor { outline: 3px solid #a3e635 !important; outline-offset: 3px; border-radius: 6px; box-shadow: 0 0 0 6px rgba(10, 31, 26, 0.35); }
+/* Double-tap is "open" for the screen reader, not "zoom" */
+.sr-on, .sr-on body { touch-action: manipulation; }

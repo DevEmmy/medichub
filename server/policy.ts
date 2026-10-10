@@ -14,7 +14,8 @@ export function visibleData(userId: string | null, only?: TableName[]): Partial<
   const hospIds = new Set(all.hospitals.filter((h) => role === 'admin' || h.verification === 'verified' || h.publicRecord || staffOf.has(h.id)).map((h) => h.id))
   const byHosp = <T extends { hospitalId: string }>(rows: T[]) => rows.filter((r) => hospIds.has(r.hospitalId))
   const own = <T extends { userId: string }>(rows: T[]) => (u ? rows.filter((r) => r.userId === u.id) : [])
-  const bookings = u ? all.bookings.filter((b) => b.patientId === u.id || staffOf.has(b.hospitalId)) : []
+  const doctorIds = new Set(u && role === 'doctor' ? all.hospital_doctors.filter((d) => d.userId === u.id).map((d) => d.id) : [])
+  const bookings = u ? all.bookings.filter((b) => b.patientId === u.id || staffOf.has(b.hospitalId) || (b.doctorId && doctorIds.has(b.doctorId) && b.status !== 'awaiting_payment')) : []
   const bookingIds = new Set(bookings.map((b) => b.id))
 
   const out: Partial<Tables> = {
@@ -24,7 +25,8 @@ export function visibleData(userId: string | null, only?: TableName[]): Partial<
     hospital_staff: u ? all.hospital_staff.filter((s) => s.userId === u.id || (role === 'admin')) : [],
     hospital_departments: byHosp(all.hospital_departments),
     hospital_services: byHosp(all.hospital_services),
-    hospital_doctors: byHosp(all.hospital_doctors),
+    // Doctors' contact details stay private to their own hospital's staff (and the doctor)
+    hospital_doctors: byHosp(all.hospital_doctors).map((d) => (staffOf.has(d.hospitalId) || role === 'admin' || (u && d.userId === u.id) ? d : { ...d, email: undefined, phone: undefined, userId: undefined })),
     hospital_status: byHosp(all.hospital_status),
     hospital_capacity: byHosp(all.hospital_capacity),
     hospital_slots: byHosp(all.hospital_slots),

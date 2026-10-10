@@ -372,4 +372,13 @@ alter table bookings add column if not exists pay_at_hospital boolean;
 alter table hospitals add column if not exists photos jsonb;
 alter table hospital_documents add column if not exists file_id text;
 alter table bookings drop constraint if exists bookings_status_check;
-alter table bookings add constraint bookings_status_check check (status in ('awaiting_payment','pending','confirmed','checked_in','in_consultation','completed','cancelled','no_show'))
+alter table bookings add constraint bookings_status_check check (status in ('awaiting_payment','pending','confirmed','checked_in','in_consultation','completed','cancelled','no_show'));
+
+-- Doctors get appointment alerts and their own dashboard
+alter table hospital_doctors add column if not exists email text;
+alter table hospital_doctors add column if not exists phone text;
+alter table hospital_doctors add column if not exists user_id text;
+alter table bookings add column if not exists doctor_id text;
+alter table bookings add column if not exists doctor_name text;
+alter table users drop constraint if exists users_role_check;
+alter table users add constraint users_role_check check (role in ('patient','hospital','admin','doctor'));

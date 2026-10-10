@@ -47,4 +47,5 @@ export const testGateway: PayGateway = {
     return { status: t.status === 'pending' ? 'pending' : t.status, amountKobo: t.amountKobo, currency: 'NGN', paidAt: t.paidAt, channel: 'card', gatewayResponse: t.status === 'success' ? 'Approved (test)' : 'Declined (test)' }
   },
   async refund(reference) { const m = load(); if (m[reference]) { m[reference].refunded = true; save(m) } },
+  simulator: { complete: (reference, success) => completeTestPayment(reference, success) },
 }

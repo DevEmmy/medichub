@@ -24,7 +24,8 @@ Team Medic Hub · medichubnigeria@gmail.com · 07042744090
    - `APP_URL` – where people open the app; links in emails point here. Use `https://devemmy.github.io/medichub/` if the website stays on GitHub Pages, else the Render address.
    - `ALLOWED_ORIGINS` – `https://devemmy.github.io` when the website is on GitHub Pages.
    - Email (booking alerts to hospital staff, patient confirmations, password resets, status reminders, weekly reports). Set one of:
-     - **Gmail**: `SMTP_USER` (your Gmail address) + `SMTP_PASS` (a Google *App password*: Google Account → Security → 2-Step Verification → App passwords). Optional `SMTP_HOST`/`SMTP_PORT` for other providers. Gmail allows about 500 emails a day.
+     - **Brevo** (free, 300 emails a day, works on Render's free plan): `BREVO_API_KEY` + `MAIL_FROM` (an address you verified as a sender in Brevo).
+     - **Gmail**: `SMTP_USER` (your Gmail address) + `SMTP_PASS` (a Google *App password*: Google Account → Security → 2-Step Verification → App passwords). Optional `SMTP_HOST`/`SMTP_PORT` for other providers. Gmail allows about 500 emails a day. Render's free plan blocks email ports, so use Brevo or Resend there.
      - **Resend**: `RESEND_API_KEY` + `MAIL_FROM` ([Resend](https://resend.com)), better for high volume.
      Without email, alerts are still recorded in each hospital's Email activity, and password reset is disabled for safety.
    - `PAYSTACK_SECRET_KEY` – online booking payments. Start with your `sk_test_…` key (Paystack test cards, no real money), switch to `sk_live_…` after Paystack approves your business. In the Paystack dashboard set the **Webhook URL** to `https://<your-site>/api/paystack/webhook`. `PLATFORM_FEE_PERCENT` sets Medic Hub's share (default 0).
@@ -83,6 +84,20 @@ Hospitals add their settlement account under **Payments**: the account name is c
 
 When a patient books a service that has a fee, the slot is held for 30 minutes and the patient pays on Paystack's checkout (card, transfer, USSD; Medic Hub never sees card details). The server confirms every payment with Paystack (status, amount, currency, reference) on return and again via the HMAC-signed webhook, so payments are never trusted from the browser and never lost if the browser closes. Unpaid holds expire and free the slot; cancelled paid bookings are refunded automatically. Services without a fee, or hospitals without a verified account, are "pay at the hospital". The pitch demo uses a clearly labelled test checkout instead of Paystack.
 
+### Payment simulator (demo) → Paystack (live)
+
+With no `PAYSTACK_SECRET_KEY`, the server runs a **payment simulator** (turn it off with `PAYMENT_SIMULATOR=0`). It behaves like a real gateway: every priced service must be paid before the booking is confirmed, the amount always comes from the hospital's price list on the server, and the server checks the "bank's" reported amount against it. Going commercial means setting `PAYSTACK_SECRET_KEY` (and the webhook URL): nothing else changes, because both sit behind the same `PayGateway` interface (`server/simulator.ts`, `server/paystack.ts`).
+
+Services with no price show **Price on request** and a Call button: patients ring the hospital to say what they need. The booked price is the hospital's own consultation fee, not an extra charge; tests and drugs ordered during the visit are paid at the hospital.
+
+### Doctors
+
+Hospitals add doctors under **Hospital profile › Doctors** with an email (Gmail or any). Patients can pick a doctor or "Any available doctor" (the least busy matching doctor is assigned). The doctor gets an email for every booking and, after signing up as a **Doctor** with that same email, a dashboard at `#/doctor` with their patients and messages ("You will be with Amaka Okafor on … at 10:00 AM"). For demos, listed public-record hospitals get **sample doctors and indicative prices** (marked "Sample"); `DEMO_EXTRAS=0` turns that off.
+
+## Checking the live server
+
+Open `https://<your-site>/api/health`. It shows whether email is on (`email.provider`), how many emails were sent or failed, and the **last email error** (for example Brevo's "sender not valid" or "key not found"), plus SMS and payment mode.
+
 ## QR codes
 
 Booking passes carry a secure link (`…#/pass/MED-XXXXXX?t=<secret>`), so any phone camera opens a verification page: anyone holding the pass sees that it is genuine; hospital staff signed in to that hospital see every detail and can check the patient in from that screen. The hospital check-in page also scans with the camera or from a photo.
@@ -90,6 +105,9 @@ Booking passes carry a secure link (`…#/pass/MED-XXXXXX?t=<secret>`), so any p
 ## Tests
 
 - `node qa/mock-paystack.mjs &` then `node qa/launch.mjs` – production flow against the real server with a stand-in Paystack (hospital sign-up → documents → verification → bank account → paid booking → QR check-in → rating → Premium → refund → signed webhook → restart persistence)
+- `node qa/screenreader.mjs` – built-in screen reader: Tab / arrows / H / K / Enter on a computer, tap / double-tap / swipe on a phone (needs `vite preview`)
+- `node qa/pay-doctor.mjs` – demo build: prices, choosing a doctor, paying on the simulator, the doctor's dashboard
+- `node qa/sim-server.mjs` – the payment simulator on the real server
 - `node qa/e2e.mjs` – demo build flows and layout checks at 320–1024 px
 
 ## Pitch demo: accounts (password `demo1234`)

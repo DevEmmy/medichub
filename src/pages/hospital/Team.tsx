@@ -17,7 +17,7 @@ import { cn } from '../../utils/cn'
 import type { EmailLog, TeamAlerts, TeamMember } from '../../types'
 
 const KIND: Record<EmailLog['kind'], string> = {
-  new_booking: 'New booking', paid: 'Paid booking', cancelled: 'Cancellation', rescheduled: 'Reschedule', daily_schedule: 'Morning schedule',
+  doctor_assigned: 'Doctor told', new_booking: 'New booking', paid: 'Paid booking', cancelled: 'Cancellation', rescheduled: 'Reschedule', daily_schedule: 'Morning schedule',
   test: 'Test email', patient_confirmation: 'Patient confirmation', patient_update: 'Patient update',
 }
 const STATUS: Record<EmailLog['status'], { label: string; cls: string; icon: typeof MailCheck }> = {

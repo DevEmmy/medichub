@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, Building2, Check, UserRound } from 'lucide-react'
+import { ArrowLeft, Building2, Check, Stethoscope, UserRound } from 'lucide-react'
 import { AuthShell } from '../../layouts/AuthShell'
 import { Field } from '../../components/ui/Field'
 import { Spinner } from '../../components/ui/States'
@@ -12,7 +12,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { cn } from '../../utils/cn'
 import { rememberDemoVerify } from '../../components/navigation/VerifyEmailBanner'
 
-type R = 'patient' | 'hospital'
+type R = 'patient' | 'hospital' | 'doctor'
 
 export default function Signup() {
   useDocumentTitle('Create account')
@@ -39,22 +39,22 @@ export default function Signup() {
     try {
       const u = await signUp({ ...form, role: role! })
       rememberDemoVerify(u.demoVerifyToken)
-      toast('success', 'Account created', `We've emailed a confirmation link to ${u.email}. ${role === 'hospital' ? 'Next, tell us about your facility.' : 'Welcome to Medic Hub.'}`)
-      nav(role === 'hospital' ? '/hospital/onboarding' : '/app', { replace: true })
+      toast('success', 'Account created', `We've emailed a confirmation link to ${u.email}. ${role === 'hospital' ? 'Next, tell us about your facility.' : role === 'doctor' ? 'Your patients are on your schedule.' : 'Welcome to Medic Hub.'}`)
+      nav(role === 'hospital' ? '/hospital/onboarding' : role === 'doctor' ? '/doctor' : '/app', { replace: true })
     } catch (err) { setError((err as Error).message) } finally { setLoading(false) }
   }
   const pwStrength = form.password ? Math.min(3, (form.password.length >= 8 ? 1 : 0) + (/\d/.test(form.password) ? 1 : 0) + (/[^a-zA-Z0-9]/.test(form.password) || form.password.length >= 12 ? 1 : 0)) : 0
 
   return (
-    <AuthShell title={role ? (role === 'patient' ? 'Create your account' : 'Register your facility') : 'What are you?'}
+    <AuthShell title={role ? (role === 'patient' ? 'Create your account' : role === 'doctor' ? 'Create your doctor account' : 'Register your facility') : 'What are you?'}
       subtitle={role ? <button onClick={() => setRole(null)} className="inline-flex items-center gap-1 font-medium text-slate-600 hover:text-ink"><ArrowLeft size={15} /> Change account type</button> : 'Choose the account that fits you.'}
       footer={<>Already have an account? <Link to="/login" className="font-semibold text-brand-700 hover:underline">Sign in</Link></>}>
       <AnimatePresence mode="wait">
         {!role ? (
           <motion.div key="pick" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="grid gap-3" role="radiogroup" aria-label="Account type">
-            {([['patient', UserRound, "I'm a Patient", 'Find hospitals, book appointments and keep your health information ready.'], ['hospital', Building2, "I'm a Hospital", 'Publish live availability, manage bookings and reach patients nearby.']] as const).map(([k, I, t, d]) => (
+            {([['patient', UserRound, "I'm a Patient", 'Find hospitals, book appointments and keep your health information ready.'], ['hospital', Building2, "I'm a Hospital", 'Publish live availability, manage bookings and reach patients nearby.'], ['doctor', Stethoscope, "I'm a Doctor", 'See the patients booked with you. Your hospital adds your email first.']] as const).map(([k, I, t, d]) => (
               <button key={k} role="radio" aria-checked={false} onClick={() => setRole(k)} className="group flex items-start gap-4 rounded-2xl bg-white p-5 text-left shadow-soft ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:ring-brand-300">
-                <span className={cn('grid h-12 w-12 shrink-0 place-items-center rounded-2xl', k === 'patient' ? 'bg-brand-50 text-brand-700' : 'bg-ink text-white')}><I size={22} /></span>
+                <span className={cn('grid h-12 w-12 shrink-0 place-items-center rounded-2xl', k === 'patient' ? 'bg-brand-50 text-brand-700' : k === 'doctor' ? 'bg-lime-200 text-ink' : 'bg-ink text-white')}><I size={22} /></span>
                 <span><span className="block font-display text-[18px] font-semibold text-ink">{t}</span><span className="mt-1 block text-[14px] leading-relaxed text-slate-600">{d}</span></span>
               </button>
             ))}
@@ -62,7 +62,7 @@ export default function Signup() {
         ) : (
           <motion.form key="form" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} onSubmit={submit} className="space-y-4" noValidate>
             <Field label={role === 'hospital' ? 'Your full name' : 'Full name'} value={form.name} onChange={set('name')} autoComplete="name" error={errors.name} hint={role === 'hospital' ? 'You will be the administrator for your facility.' : undefined} />
-            <Field label={role === 'hospital' ? 'Work email' : 'Email'} type="email" value={form.email} onChange={set('email')} autoComplete="email" error={errors.email} />
+            <Field label={role === 'hospital' ? 'Work email' : 'Email'} type="email" value={form.email} onChange={set('email')} autoComplete="email" error={errors.email} hint={role === 'doctor' ? 'Use the same email your hospital added for you.' : undefined} />
             <Field label="Phone (optional)" type="tel" value={form.phone} onChange={set('phone')} autoComplete="tel" placeholder="+234 803 000 0000" />
             <div>
               <Field label="Password" type="password" value={form.password} onChange={set('password')} autoComplete="new-password" error={errors.password} hint="At least 8 characters with a number." />

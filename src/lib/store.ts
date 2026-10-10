@@ -63,7 +63,7 @@ export const TABLE_ORDER: TableName[] = [
 export const emptyTables = (): Tables => Object.fromEntries(TABLE_ORDER.map((t) => [t, []])) as unknown as Tables
 
 const KEY = 'medichub.db.v9'
-const SCHEMA_VERSION = 9
+const SCHEMA_VERSION = 10
 
 type Listener = (tables: TableName[], remote: boolean) => void
 

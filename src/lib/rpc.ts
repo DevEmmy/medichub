@@ -19,7 +19,19 @@ const TOKEN_KEY = 'medichub.token'
 export function getToken(): string | null { try { return localStorage.getItem(TOKEN_KEY) } catch { return null } }
 export function setToken(t: string | null) { try { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY) } catch { /* ignore */ } }
 
+let pending = 0
+let slowTimer: ReturnType<typeof setTimeout> | null = null
+const slow = (v: boolean) => { try { window.dispatchEvent(new CustomEvent('medichub:slow', { detail: v })) } catch { /* not in a browser */ } }
+
 export async function api<T = unknown>(path: string, body?: unknown): Promise<T> {
+  pending++
+  if (!slowTimer) slowTimer = setTimeout(() => slow(true), 4000)
+  try { return await apiCall<T>(path, body) } finally {
+    if (--pending === 0) { if (slowTimer) clearTimeout(slowTimer); slowTimer = null; slow(false) }
+  }
+}
+
+async function apiCall<T>(path: string, body?: unknown): Promise<T> {
   const t = getToken()
   let res: Response
   try {

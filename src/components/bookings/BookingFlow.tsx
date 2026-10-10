@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, Check, ChevronRight, Clock, LogIn, Stethoscope, CalendarX } from 'lucide-react'
+import { ArrowLeft, Check, ChevronRight, Clock, LogIn, Phone, Stethoscope, CalendarX, UserRound } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { Spinner, EmptyState } from '../ui/States'
 import { TextArea, Field } from '../ui/Field'
@@ -11,8 +11,8 @@ import { useToast } from '../../contexts/ToastContext'
 import { useLive } from '../../hooks/useLive'
 import { db } from '../../lib/store'
 import type { HospitalView } from '../../services/hospitals'
-import { createBooking, type BookingView } from '../../services/bookings'
-import { requiresPayment, startPayment, HOLD_MINUTES } from '../../services/payments'
+import { createBooking, doctorsForService, type BookingView } from '../../services/bookings'
+import { paymentsAvailable, requiresPayment, startPayment, HOLD_MINUTES } from '../../services/payments'
 import { useNavigate } from 'react-router-dom'
 import { Lock, ShieldCheck } from 'lucide-react'
 import { addDays, fmtDate, fmtDateLong, fmtTime, nowHHMM, today, parseDate } from '../../utils/date'
@@ -32,6 +32,7 @@ export function BookingFlow({ h, open, onClose, initialService }: { h: HospitalV
   const [slotId, setSlotId] = useState<string | null>(null)
   const [reason, setReason] = useState('')
   const [phone, setPhone] = useState(user?.phone ?? '')
+  const [doctorId, setDoctorId] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<BookingView | null>(null)
@@ -41,7 +42,7 @@ export function BookingFlow({ h, open, onClose, initialService }: { h: HospitalV
   useEffect(() => {
     if (open) {
       const pre = initialService && bookable.find((s) => s.id === initialService) ? initialService : bookable.length === 1 ? bookable[0].id : null
-      setServiceId(pre); setStep(pre ? 'date' : 'service'); setDate(null); setSlotId(null); setReason(''); setError(null); setResult(null); setPhone(user?.phone ?? '')
+      setServiceId(pre); setStep(pre ? 'date' : 'service'); setDate(null); setSlotId(null); setReason(''); setError(null); setResult(null); setPhone(user?.phone ?? ''); setDoctorId('')
     }
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -55,6 +56,10 @@ export function BookingFlow({ h, open, onClose, initialService }: { h: HospitalV
   const daySlots = slots.filter((s) => s.date === date).sort((a, b) => a.time.localeCompare(b.time))
   const svc = bookable.find((s) => s.id === serviceId)
   const slot = slots.find((s) => s.id === slotId)
+  const doctors = serviceId ? doctorsForService(h.id, serviceId) : []
+  // With online payment on, a service can only be booked once the hospital has priced it
+  const priced = (fee?: number) => !paymentsAvailable() || !!(fee && fee > 0)
+  const tel = (h.phone || h.emergencyPhone || '').replace(/\s/g, '')
   useEffect(() => { if (slotId && slot && slot.booked >= slot.capacity && step === 'time') setSlotId(null) }, [slot, slotId, step])
 
   const go = (s: Step) => { setDir(STEPS.indexOf(s) >= STEPS.indexOf(step) ? 1 : -1); setError(null); setStep(s) }
@@ -62,7 +67,7 @@ export function BookingFlow({ h, open, onClose, initialService }: { h: HospitalV
     if (!serviceId || !slotId) return
     setLoading(true); setError(null)
     try {
-      const b = await createBooking({ hospitalId: h.id, serviceId, slotId, reason, phone })
+      const b = await createBooking({ hospitalId: h.id, serviceId, slotId, reason, phone, doctorId: doctorId || undefined })
       if (b.status === 'awaiting_payment') {
         // Hand over to the secure checkout. The booking is held while the patient pays.
         const { authorizationUrl } = await startPayment(b.id)
@@ -115,8 +120,15 @@ export function BookingFlow({ h, open, onClose, initialService }: { h: HospitalV
                 <ul className="mt-3 space-y-2">
                   {bookable.map((s) => {
                     const dep = h.departments.find((d) => d.id === s.departmentId)
+                    if (!priced(s.fee)) return (
+                      <li key={s.id} className="flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-line" data-testid="price-on-request">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-mist text-slate-500"><Stethoscope size={18} /></span>
+                        <span className="min-w-0 flex-1"><span className="block text-[15px] font-semibold text-ink">{s.name}</span><span className="block text-[12.5px] text-slate-500">Price on request: call the hospital and tell them what you need.</span></span>
+                        {tel && <a href={`tel:${tel}`} className="btn btn-secondary btn-sm shrink-0"><Phone size={14} /> Call</a>}
+                      </li>
+                    )
                     return (
-                      <li key={s.id}><button onClick={() => { setServiceId(s.id); setDate(null); setSlotId(null); go('date') }} className={cn('flex w-full items-center gap-3 rounded-2xl p-4 text-left ring-1 transition hover:ring-brand-300', serviceId === s.id ? 'bg-brand-50 ring-brand-300' : 'bg-white ring-line')}>
+                      <li key={s.id}><button onClick={() => { setServiceId(s.id); setDate(null); setSlotId(null); setDoctorId(''); go('date') }} className={cn('flex w-full items-center gap-3 rounded-2xl p-4 text-left ring-1 transition hover:ring-brand-300', serviceId === s.id ? 'bg-brand-50 ring-brand-300' : 'bg-white ring-line')}>
                         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-mist text-brand-700"><Stethoscope size={18} /></span>
                         <span className="min-w-0 flex-1"><span className="block text-[15px] font-semibold text-ink">{s.name}</span><span className="block text-[12.5px] text-slate-500">{dep?.name ?? s.category} · {s.durationMins} min · {naira(s.fee)}</span></span>
                         <ChevronRight size={18} className="text-slate-400" />
@@ -171,11 +183,21 @@ export function BookingFlow({ h, open, onClose, initialService }: { h: HospitalV
               <div>
                 <h3 className="text-[17px] font-semibold">Review your booking</h3>
                 <dl className="mt-3 divide-y divide-line rounded-2xl bg-canvas px-4 ring-1 ring-line">
-                  {[['Hospital', h.name], ['Service', svc.name], ['Department', h.departments.find((d) => d.id === svc.departmentId)?.name ?? svc.category], ['Date', fmtDateLong(slot.date)], ['Time', fmtTime(slot.time)], ['Fee', naira(svc.fee)], ['Patient', user.name]].map(([k, v]) => (
+                  {[['Hospital', h.name], ['Service', svc.name], ['Department', h.departments.find((d) => d.id === svc.departmentId)?.name ?? svc.category], ['Date', fmtDateLong(slot.date)], ['Time', fmtTime(slot.time)], ['Doctor', doctors.find((d) => d.id === doctorId)?.name ?? (doctors.length ? 'Any available doctor' : 'Assigned by the hospital')], ['Fee', naira(svc.fee)], ['Patient', user.name]].map(([k, v]) => (
                     <div key={k} className="flex justify-between gap-4 py-3 text-[14px]"><dt className="text-slate-500">{k}</dt><dd className="text-right font-semibold text-ink">{v}</dd></div>
                   ))}
                 </dl>
                 <div className="mt-4 space-y-3">
+                  {doctors.length > 0 && (
+                    <label className="block">
+                      <span className="flex items-center gap-1.5 text-[13.5px] font-medium text-ink"><UserRound size={15} /> Doctor</span>
+                      <select value={doctorId} onChange={(e) => setDoctorId(e.target.value)} className="input mt-1.5 w-full" data-testid="doctor-select">
+                        <option value="">Any available doctor</option>
+                        {doctors.map((d) => <option key={d.id} value={d.id}>{d.name} · {d.specialty}</option>)}
+                      </select>
+                      <span className="mt-1 block text-[12px] text-slate-500">The doctor gets an email and a message on their dashboard with your time.</span>
+                    </label>
+                  )}
                   <Field label="Phone number for updates" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+234 803 000 0000" />
                   <TextArea label="Reason for visit (optional)" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={240} placeholder="A short note helps the team prepare." hint="Shared only with this hospital." />
                 </div>
@@ -184,7 +206,7 @@ export function BookingFlow({ h, open, onClose, initialService }: { h: HospitalV
                   <>
                     <div className="mt-4 flex items-center justify-between rounded-2xl bg-ink px-4 py-3 text-white"><span className="text-[14px] text-white/70">Total to pay now</span><span className="font-display text-[22px] font-semibold tabular">{naira(svc.fee)}</span></div>
                     <button onClick={confirm} disabled={loading} className="btn btn-brand mt-3 h-14 w-full text-[16px]" data-testid="pay-and-book">{loading ? <><Spinner /> Opening secure checkout…</> : <><Lock size={18} /> Pay {naira(svc.fee)} and book</>}</button>
-                    <p className="mt-2 flex items-start justify-center gap-1.5 text-center text-[12px] text-slate-500"><ShieldCheck size={14} className="mt-px shrink-0 text-brand-600" />Paid securely through Paystack straight to {h.name}. Your slot is held for {HOLD_MINUTES} minutes. Cancel before your appointment for a full refund.</p>
+                    <p className="mt-2 flex items-start justify-center gap-1.5 text-center text-[12px] text-slate-500"><ShieldCheck size={14} className="mt-px shrink-0 text-brand-600" />This is {h.name}'s own consultation fee, not an extra charge. Paying now confirms your slot (held for {HOLD_MINUTES} minutes). Tests or drugs the doctor orders are paid at the hospital. Cancel before your appointment for a full refund.</p>
                   </>
                 ) : (
                   <>

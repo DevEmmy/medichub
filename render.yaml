@@ -17,14 +17,16 @@ services:
         sync: false          # where people open the app, e.g. https://devemmy.github.io/medichub/
       - key: ALLOWED_ORIGINS
         sync: false          # https://devemmy.github.io when the website stays on GitHub Pages
+      - key: BREVO_API_KEY
+        sync: false          # free email (300/day) – works on Render's free plan; set MAIL_FROM too
       - key: SMTP_USER
-        sync: false          # Gmail address for booking emails (optional)
+        sync: false          # Gmail address (only on paid Render: the free plan blocks email ports)
       - key: SMTP_PASS
         sync: false          # Gmail app password
       - key: RESEND_API_KEY
         sync: false          # emails: password resets, status reminders, weekly reports
       - key: MAIL_FROM
-        sync: false          # e.g. Medic Hub <alerts@yourdomain.ng>
+        sync: false          # the sender, e.g. Medic Hub <medichubng@gmail.com> (verified in Brevo)
       - key: PAYSTACK_SECRET_KEY
         sync: false          # online payments: sk_test_… to try, sk_live_… to go live (dashboard.paystack.com › Settings › API Keys)
       - key: PLATFORM_FEE_PERCENT

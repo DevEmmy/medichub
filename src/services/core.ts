@@ -41,6 +41,9 @@ export interface OutgoingMail { to: string; subject: string; text: string; html?
 export const mailer = {
   enabled: false,
   appUrl: '',
+  /** Which email service is in use ('off' in the demo) and how sending is going, shown on /api/health. */
+  provider: 'off',
+  stats: { sent: 0, failed: 0, lastError: null as null | { at: string; message: string } },
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   send: async (_m: OutgoingMail): Promise<void> => {},
 }
@@ -62,6 +65,8 @@ export interface PayGateway {
   initialize(i: { email: string; amountKobo: number; reference: string; subaccount: string; callbackUrl: string; metadata: Record<string, string> }): Promise<{ authorizationUrl: string }>
   verify(reference: string): Promise<{ status: 'success' | 'failed' | 'abandoned' | 'pending'; amountKobo: number; currency: string; paidAt?: string; channel?: string; gatewayResponse?: string }>
   refund(reference: string): Promise<void>
+  /** Only the demo payment simulator has this: marks a checkout as paid or declined. */
+  simulator?: { complete(reference: string, success: boolean, amountKobo: number): void }
 }
 const offGateway = (): never => { throw new AppError('unavailable', 'Online payment is not set up on this server yet.') }
 export const payments: { gateway: PayGateway; callbackUrl: string } = {
@@ -154,7 +159,7 @@ export const ENUMS = {
   verification: ['draft', 'pending', 'under_review', 'verified', 'needs_attention', 'rejected'] as const,
   severity: ['info', 'warning', 'critical'] as const,
   automation: ['patientReminders', 'lowBedAlert', 'weeklyReport'] as const,
-  signupRole: ['patient', 'hospital'] as const,
+  signupRole: ['patient', 'hospital', 'doctor'] as const,
   eventType: ['appointment', 'visit', 'vaccination', 'lab', 'medication', 'profile'] as const,
 }
 

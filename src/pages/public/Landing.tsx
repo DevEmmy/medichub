@@ -12,8 +12,6 @@ import { useToast } from '../../contexts/ToastContext'
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '../../data/seed'
 import { HERO_SLIDES, SCENES } from '../../data/scenes'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
-import { useLive } from '../../hooks/useLive'
-import { listPublicHospitals } from '../../services/hospitals'
 import { cn } from '../../utils/cn'
 import { A11yButton } from '../../contexts/A11yContext'
 
@@ -52,7 +50,7 @@ function Header() {
   )
 }
 
-function Hero({ count }: { count: number }) {
+function Hero() {
   const nav = useNavigate()
   const { enterEmergency } = useEmergency()
   const [q, setQ] = useState('')
@@ -66,7 +64,7 @@ function Hero({ count }: { count: number }) {
       <div className="container-app flex min-h-[100svh] flex-col justify-center pb-28 pt-28">
         <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="inline-flex w-fit items-center gap-2 rounded-full bg-white/10 px-3.5 py-1.5 text-[13px] font-semibold text-lime-300 ring-1 ring-white/15 backdrop-blur">
           <span className="relative flex h-2 w-2"><span className="absolute inset-0 animate-pulseRing rounded-full bg-lime-400" /><span className="relative h-2 w-2 rounded-full bg-lime-400" /></span>
-          Built in Nigeria, for Nigerians · {count} hospitals listed
+          Built in Nigeria, for Nigerians
         </motion.p>
         <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="mt-6 max-w-3xl text-[44px] font-extrabold leading-[0.98] tracking-[-0.03em] text-white sm:text-[68px] lg:text-[84px]">
           The right hospital,<br /><span className="text-lime-400">right now.</span>
@@ -316,12 +314,11 @@ function Footer() {
 
 export default function Landing() {
   useDocumentTitle('')
-  const { data: hospitals = [] } = useLive(listPublicHospitals, ['hospitals', 'hospital_status', 'hospital_capacity'])
   return (
     <div className="min-h-[100dvh] overflow-x-clip bg-canvas">
       <Header />
       <main>
-        <Hero count={hospitals.length} />
+        <Hero />
         <Bento />
         <Steps />
         <AiSection />

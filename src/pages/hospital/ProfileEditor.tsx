@@ -120,7 +120,7 @@ function ServiceForm({ h, s, onDone }: { h: HospitalView; s?: Service; onDone: (
   const [f, setF] = useState({ name: s?.name ?? '', category: s?.category ?? ALL_SPECIALTIES[1], departmentId: s?.departmentId ?? '', durationMins: s?.durationMins ?? 20, fee: s?.fee ?? 0, bookable: s?.bookable ?? true, active: s?.active ?? true })
   const [err, setErr] = useState<string | null>(null)
   const { toast } = useToast()
-  const submit = async () => { try { await saveService(h.id, { ...f, id: s?.id, departmentId: f.departmentId || undefined, fee: f.fee || undefined }); toast('success', s ? 'Service updated' : 'Service added', f.bookable ? 'Appointment slots are ready for the next two weeks.' : undefined); onDone() } catch (e) { setErr((e as Error).message) } }
+  const submit = async () => { try { await saveService(h.id, { ...f, id: s?.id, departmentId: f.departmentId || undefined, fee: f.fee || 0 }); toast('success', s ? 'Service updated' : 'Service added', f.bookable ? 'Appointment slots are ready for the next two weeks.' : undefined); onDone() } catch (e) { setErr((e as Error).message) } }
   return (
     <div className="space-y-4">
       <Field label="Service name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} error={err} placeholder="e.g. Diabetes clinic" />
@@ -128,7 +128,7 @@ function ServiceForm({ h, s, onDone }: { h: HospitalView; s?: Service; onDone: (
         <SelectField label="Specialty" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>{ALL_SPECIALTIES.map((c) => <option key={c}>{c}</option>)}</SelectField>
         <SelectField label="Department" value={f.departmentId} onChange={(e) => setF({ ...f, departmentId: e.target.value })}><option value="">None</option>{h.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</SelectField>
         <Field label="Duration (minutes)" type="number" min={5} value={f.durationMins} onChange={(e) => setF({ ...f, durationMins: Number(e.target.value) })} />
-        <Field label="Fee from (₦)" type="number" min={0} value={f.fee} onChange={(e) => setF({ ...f, fee: Number(e.target.value) })} hint="Leave 0 to show “Fee on arrival”." />
+        <Field label="Price (₦)" type="number" min={0} value={f.fee} onChange={(e) => setF({ ...f, fee: Number(e.target.value) })} hint="Patients pay this online to confirm their booking. Leave 0 if the price depends on the case: patients will be asked to call you first." />
       </div>
       <Toggle checked={f.bookable} onChange={(v) => setF({ ...f, bookable: v })} label="Accept online bookings" description="Creates appointment slots patients can reserve." />
       <Toggle checked={f.active} onChange={(v) => setF({ ...f, active: v })} label="Show on profile" />
@@ -198,7 +198,8 @@ function Doctors({ h }: { h: HospitalView }) {
         {h.doctors.map((d) => (
           <li key={d.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
             <span className="grid h-10 w-10 place-items-center rounded-full bg-brand-50 text-brand-700"><UserRound size={17} /></span>
-            <div className="min-w-0 flex-1"><p className="text-[14.5px] font-semibold text-ink">{d.name}</p><p className="text-[12.5px] text-slate-500">{d.specialty}{d.departmentId ? ` · ${h.departments.find((x) => x.id === d.departmentId)?.name ?? ''}` : ''}</p></div>
+            <div className="min-w-0 flex-1"><p className="text-[14.5px] font-semibold text-ink">{d.name}{d.id.startsWith('drs_') && <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10.5px] font-bold uppercase text-amber-800">Sample</span>}</p><p className="text-[12.5px] text-slate-500">{d.specialty}{d.departmentId ? ` · ${h.departments.find((x) => x.id === d.departmentId)?.name ?? ''}` : ''}</p>
+              <p className="text-[12.5px] text-slate-500">{d.email ? <>Alerts to {d.email} · {d.userId ? <span className="font-semibold text-brand-700">has a doctor account</span> : 'no account yet'}</> : <span className="text-amber-700">Add an email so this doctor is told about their patients</span>}</p></div>
             <Toggle checked={d.available} onChange={async (v) => { await saveDoctor(h.id, { ...d, available: v }); toast('success', `${d.name} marked ${v ? 'available' : 'away'}`) }} label={`${d.name} available`} />
             <button onClick={() => setEdit(d)} className="btn btn-secondary btn-sm" aria-label={`Edit ${d.name}`}><Pencil size={14} /></button>
             <button onClick={async () => { await removeDoctor(h.id, d.id); toast('success', 'Doctor removed') }} className="btn btn-secondary btn-sm" aria-label={`Remove ${d.name}`}><Trash2 size={14} /></button>
@@ -211,6 +212,8 @@ function Doctors({ h }: { h: HospitalView }) {
             <Field label="Full name" value={edit.name ?? ''} onChange={(e) => setEdit({ ...edit, name: e.target.value })} placeholder="Dr. " />
             <SelectField label="Specialty" value={edit.specialty} onChange={(e) => setEdit({ ...edit, specialty: e.target.value })}>{ALL_SPECIALTIES.map((c) => <option key={c}>{c}</option>)}</SelectField>
             <SelectField label="Department" value={edit.departmentId ?? ''} onChange={(e) => setEdit({ ...edit, departmentId: e.target.value || undefined })}><option value="">None</option>{h.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</SelectField>
+            <Field label="Email (Gmail or any)" type="email" value={edit.email ?? ''} onChange={(e) => setEdit({ ...edit, email: e.target.value })} placeholder="doctor@gmail.com" hint="Each booking with this doctor is emailed here. The doctor signs up as a Doctor with this email to see their schedule." />
+            <Field label="Phone (optional)" type="tel" value={edit.phone ?? ''} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} placeholder="+234 803 000 0000" />
             <button onClick={async () => { try { await saveDoctor(h.id, edit as Doctor); toast('success', 'Doctor saved'); setEdit(null) } catch (e) { toast('error', 'Could not save', (e as Error).message) } }} className="btn btn-primary w-full">Save</button>
           </div>
         )}

@@ -15,13 +15,14 @@ import { createHash, randomBytes } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
 import { Database } from './db'
+import { simulatorGateway } from './simulator'
 import { visibleData } from './policy'
 import { db, emptyTables, type TableName } from '../src/lib/store'
 import { registry } from '../src/lib/rpc'
 import { AppError, mailer, payments, sessionRuntime, smsGateway } from '../src/services/core'
 import { handleSms, handleUssd } from '../src/services/phone'
 import { hashPasswordStrong } from '../src/lib/ids'
-import { buildPublicDirectory, buildSeed, ensureSlots } from '../src/data/seed'
+import { addDemoExtras, buildPublicDirectory, buildSeed, ensureSlots, slotPolicy } from '../src/data/seed'
 import { startReminderScheduler } from '../src/services/reminders'
 import type { Session } from '../src/types'
 // Register every operation
@@ -48,6 +49,7 @@ sessionRuntime.get = () => als.getStore()?.session ?? null
 sessionRuntime.set = (s) => { const c = als.getStore(); if (c) { c.session = s; c.sessionChanged = true } }
 
 const database = new Database()
+const smsStats = { sent: 0, failed: 0, lastError: null as string | null }
 const sessions = new Map<string, { userId: string; createdAt: string; expiresAt: number }>()
 const sha = (t: string) => createHash('sha256').update(t).digest('hex')
 
@@ -287,7 +289,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/sync') {
       const a = authed(req, url)
       const only = url.searchParams.get('tables')?.split(',').filter(Boolean) as TableName[] | undefined
-      return send(res, 200, { data: visibleData(a?.session.userId ?? null, only), userId: a?.session.userId ?? null, payments: payments.gateway.mode })
+      return send(res, 200, { data: visibleData(a?.session.userId ?? null, only), userId: a?.session.userId ?? null, payments: payments.gateway.mode, simulator: !!payments.gateway.simulator })
     }
     if (url.pathname === '/api/events') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' })
@@ -342,7 +344,7 @@ const server = createServer(async (req, res) => {
     }
     if (url.pathname === '/api/files' && req.method === 'POST') return await uploadFile(req, res, url)
     if (url.pathname.startsWith('/api/files/') && req.method === 'GET') return await downloadFile(res, url.pathname.slice(11), url, req)
-    if (url.pathname === '/api/health') return send(res, 200, { ok: database.failures === 0, database: database.kind, persistFailures: database.failures, hospitals: db.select('hospitals').length, users: db.select('users').length })
+    if (url.pathname === '/api/health') return send(res, 200, { ok: database.failures === 0, database: database.kind, persistFailures: database.failures, users: db.select('users').length, email: { provider: mailer.provider, from: (process.env.MAIL_FROM ?? '').replace(/^.*<([^>]+)>.*$/, '$1').replace(/^(.).*@/, '$1***@'), ...mailer.stats }, sms: { on: smsGateway.enabled, ...smsStats }, payments: payments.gateway.mode })
     if (url.pathname.startsWith('/api/')) return send(res, 404, { error: { code: 'not_found', message: 'Not found.' } })
     return await serveStatic(res, url.pathname)
   } catch (e) {
@@ -367,6 +369,16 @@ async function main() {
   }, ensureSlots)
   if (fresh && data.hospitals.length) database.persist(db.all(), Object.keys(emptyTables()) as TableName[])
 
+  // Demo: sample doctors and indicative prices for listed hospitals (only fills gaps). DEMO_EXTRAS=0 turns this off.
+  if (process.env.DEMO_EXTRAS !== '0') {
+    let added = false
+    db.write(['hospital_services', 'hospital_doctors'], (d) => { added = addDemoExtras(d) })
+    if (added) console.log('[boot] added sample doctors and indicative prices (set DEMO_EXTRAS=0 to stop)')
+    // ...and open appointment slots at listed hospitals, after their rows are saved (slots reference hospitals)
+    slotPolicy.publicRecords = true
+    db.write(['hospital_slots'], (d) => { ensureSlots(d) })
+  }
+
   // First reviewer account comes from the environment (there is no public sign-up for reviewers).
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
   if (adminEmail && !db.select('users').some((u) => u.email === adminEmail)) {
@@ -380,7 +392,7 @@ async function main() {
   for (const r of rows.rows) sessions.set(String(r.token_hash), { userId: String(r.user_id), createdAt: String(r.created_at), expiresAt: new Date(String(r.expires_at)).getTime() })
   await database.query('delete from sessions where expires_at <= now()')
 
-  // Email: Gmail / any SMTP (SMTP_USER + SMTP_PASS), or Resend (RESEND_API_KEY + MAIL_FROM)
+  // Email: Brevo (BREVO_API_KEY + MAIL_FROM), Gmail / any SMTP (SMTP_USER + SMTP_PASS), or Resend (RESEND_API_KEY + MAIL_FROM)
   const appUrl = (process.env.APP_URL ?? '').replace(/\/?$/, '/')
   const fromAddr = (name?: string, addr = process.env.MAIL_FROM ?? process.env.SMTP_USER ?? '') => {
     const bare = addr.replace(/^.*<([^>]+)>.*$/, '$1')
@@ -392,26 +404,41 @@ async function main() {
       host: process.env.SMTP_HOST ?? 'smtp.gmail.com', port: Number(process.env.SMTP_PORT ?? 465), secure: (process.env.SMTP_PORT ?? '465') === '465',
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     })
-    mailer.enabled = true; mailer.appUrl = appUrl
+    mailer.enabled = true; mailer.appUrl = appUrl; mailer.provider = 'smtp'
     mailer.send = async (m) => { await transport.sendMail({ from: fromAddr(m.fromName), to: m.to, subject: m.subject, text: m.text, html: m.html, replyTo: m.replyTo }) }
   } else if (process.env.BREVO_API_KEY && process.env.MAIL_FROM) {
     // Brevo's HTTPS API: free 300 emails a day, and works on hosts that block email ports (e.g. Render free)
-    mailer.enabled = true; mailer.appUrl = appUrl
+    mailer.enabled = true; mailer.appUrl = appUrl; mailer.provider = 'brevo'
     mailer.send = async (m) => {
       const from = process.env.MAIL_FROM!; const email = from.replace(/^.*<([^>]+)>.*$/, '$1').trim()
       const r = await fetch(`${process.env.BREVO_BASE_URL ?? 'https://api.brevo.com'}/v3/smtp/email`, {
-        method: 'POST', headers: { 'api-key': process.env.BREVO_API_KEY!, 'Content-Type': 'application/json', Accept: 'application/json' },
+        method: 'POST', signal: AbortSignal.timeout(15_000), headers: { 'api-key': process.env.BREVO_API_KEY!.trim(), 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ sender: { email, name: m.fromName ? `${m.fromName} via Medic Hub` : 'Medic Hub' }, to: [{ email: m.to }], subject: m.subject, textContent: m.text, htmlContent: m.html ?? `<pre>${m.text.replace(/</g, '&lt;')}</pre>`, ...(m.replyTo ? { replyTo: { email: m.replyTo } } : {}) }),
       })
       if (!r.ok) throw new Error(`email failed: ${r.status} ${await r.text().catch(() => '')}`)
     }
   } else if (process.env.RESEND_API_KEY && process.env.MAIL_FROM) {
-    mailer.enabled = true; mailer.appUrl = appUrl
+    mailer.enabled = true; mailer.appUrl = appUrl; mailer.provider = 'resend'
     mailer.send = async (m) => {
-      const r = await fetch(`${process.env.RESEND_BASE_URL ?? 'https://api.resend.com'}/emails`, { method: 'POST', headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: fromAddr(m.fromName), to: m.to, subject: m.subject, text: m.text, html: m.html, reply_to: m.replyTo }) })
+      const r = await fetch(`${process.env.RESEND_BASE_URL ?? 'https://api.resend.com'}/emails`, { method: 'POST', signal: AbortSignal.timeout(15_000), headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: fromAddr(m.fromName), to: m.to, subject: m.subject, text: m.text, html: m.html, reply_to: m.replyTo }) })
       if (!r.ok) throw new Error(`email failed: ${r.status} ${await r.text().catch(() => '')}`)
     }
   }
+  if (mailer.enabled) {
+    // Count successes and keep the last error (without secrets) so /api/health can show what went wrong
+    const raw = mailer.send
+    mailer.send = async (m) => {
+      try {
+        await Promise.race([raw(m), new Promise((_, no) => setTimeout(() => no(new Error('email timed out after 20s')), 20_000))])
+        mailer.stats.sent++
+      } catch (e) {
+        mailer.stats.failed++
+        mailer.stats.lastError = { at: new Date().toISOString(), message: String((e as Error)?.message ?? e).replace(/(xkeysib|re_)[\w-]+/g, '[key]').slice(0, 400) }
+        console.error('[email] failed:', mailer.stats.lastError.message)
+        throw e
+      }
+    }
+  } else console.warn('[boot] email is OFF: set BREVO_API_KEY and MAIL_FROM to send emails')
   // SMS: Africa's Talking (works on all Nigerian networks). AT_USERNAME "sandbox" uses their free test simulator.
   if (process.env.AT_USERNAME && process.env.AT_API_KEY) {
     const base = process.env.AT_BASE_URL ?? (process.env.AT_USERNAME === 'sandbox' ? 'https://api.sandbox.africastalking.com' : 'https://api.africastalking.com')
@@ -419,9 +446,14 @@ async function main() {
     smsGateway.send = async (to, message) => {
       const form = new URLSearchParams({ username: process.env.AT_USERNAME!, to, message })
       if (process.env.AT_SENDER_ID) form.set('from', process.env.AT_SENDER_ID)
-      const r = await fetch(`${base}/version1/messaging`, { method: 'POST', headers: { apiKey: process.env.AT_API_KEY!, Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: form })
-      if (!r.ok) throw new Error(`sms failed: ${r.status} ${await r.text().catch(() => '')}`)
+      const r = await fetch(`${base}/version1/messaging`, { method: 'POST', signal: AbortSignal.timeout(15_000), headers: { apiKey: process.env.AT_API_KEY!, Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: form })
+      if (!r.ok) { smsStats.failed++; smsStats.lastError = `${r.status} ${(await r.text().catch(() => '')).slice(0, 300)}`; throw new Error(`sms failed: ${smsStats.lastError}`) }
+      smsStats.sent++
     }
+  }
+  if (!process.env.PAYSTACK_SECRET_KEY && process.env.PAYMENT_SIMULATOR !== '0') {
+    payments.gateway = simulatorGateway()
+    console.log('[boot] payments: SIMULATOR (demo, no real money). Set PAYSTACK_SECRET_KEY to take real payments.')
   }
   if (process.env.PAYSTACK_SECRET_KEY) {
     payments.gateway = paystackGateway()
