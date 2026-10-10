@@ -7,7 +7,7 @@ import App from './App'
 import { startReminderScheduler } from './services/reminders'
 import { API_URL, BACKEND } from './config'
 import { api, getToken, setToken, syncTables } from './lib/rpc'
-import { getSession, payments, setSession } from './services/core'
+import { accountRules, getSession, payments, setSession } from './services/core'
 import { testGateway } from './services/testGateway'
 
 const root = createRoot(document.getElementById('root')!)
@@ -35,7 +35,8 @@ async function bootBackend() {
   db.initClient()
   const wake = setTimeout(waking, 2500)
   try {
-    const r = await api<{ data: Partial<Tables>; userId: string | null; payments?: 'off' | 'test' | 'live'; simulator?: boolean }>('/sync')
+    const r = await api<{ data: Partial<Tables>; userId: string | null; payments?: 'off' | 'test' | 'live'; simulator?: boolean; rules?: typeof accountRules }>('/sync')
+    if (r.rules) Object.assign(accountRules, r.rules)
     // The browser only needs to know how payments behave; the real gateway (simulator or Paystack) runs on the server
     payments.gateway = { ...payments.gateway, mode: r.payments ?? 'off', ...(r.simulator ? { simulator: { complete: () => {} } } : {}) }
     const s = getSession()

@@ -108,9 +108,15 @@ export function currentUser(): User | null {
 }
 
 // ---------- Access policies (enforced on the server for every operation; reads are filtered in server/policy.ts) ----------
+/** Rules the server switches on: with email working, accounts must confirm their email before using the app;
+ *  in demo mode, newly registered hospitals are approved automatically so a pitch can show the full flow. */
+export const accountRules = { verifiedEmailRequired: false, demoAutoVerify: false }
+export const needsEmailConfirm = (u: Pick<User, 'emailVerifiedAt' | 'viaPhone' | 'role'> | null | undefined) => !!u && accountRules.verifiedEmailRequired && !u.emailVerifiedAt && !u.viaPhone && u.role !== 'admin'
+
 export function requireUser(): User {
   const u = currentUser()
   if (!u) throw new AppError('auth', 'Please sign in to continue.')
+  if (needsEmailConfirm(u)) throw new AppError('unverified', `Confirm your email first: open the link we sent to ${u.email}.`)
   return u
 }
 export function requireRole(...roles: Role[]): User {

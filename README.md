@@ -94,6 +94,12 @@ Services with no price show **Price on request** and a Call button: patients rin
 
 Hospitals add doctors under **Hospital profile › Doctors** with an email (Gmail or any). Patients can pick a doctor or "Any available doctor" (the least busy matching doctor is assigned). The doctor gets an email for every booking and, after signing up as a **Doctor** with that same email, a dashboard at `#/doctor` with their patients and messages ("You will be with Amaka Okafor on … at 10:00 AM"). For demos, listed public-record hospitals get **sample doctors and indicative prices** (marked "Sample"); `DEMO_EXTRAS=0` turns that off.
 
+## Demo mode (on by default) and email confirmation
+
+- **Hospitals go live at once**: a hospital that registers is approved automatically (and any hospital waiting for review is approved when the server starts), with starting prices filled in, so patients can find and book it straight away. Set `DEMO_AUTO_VERIFY=0` to go back to manual review by a reviewer (`ADMIN_EMAIL` / `ADMIN_PASSWORD`).
+- **Email confirmation is required** whenever email is set up: after signing up, people only see a "Confirm your email" screen (emergency help stays open) until they click the link. `REQUIRE_EMAIL_CONFIRM=0` turns this off.
+- **Email links** open this server's own copy of the app. On Render this is automatic (`RENDER_EXTERNAL_URL`); an `APP_URL` pointing at GitHub is ignored.
+
 ## Checking the live server
 
 Open `https://<your-site>/api/health`. It shows whether email is on (`email.provider`), how many emails were sent or failed, and the **last email error** (for example Brevo's "sender not valid" or "key not found"), plus SMS and payment mode.

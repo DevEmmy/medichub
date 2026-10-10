@@ -19,10 +19,10 @@ import { simulatorGateway } from './simulator'
 import { visibleData } from './policy'
 import { db, emptyTables, type TableName } from '../src/lib/store'
 import { registry } from '../src/lib/rpc'
-import { AppError, mailer, payments, sessionRuntime, smsGateway } from '../src/services/core'
+import { AppError, accountRules, mailer, payments, sessionRuntime, smsGateway } from '../src/services/core'
 import { handleSms, handleUssd } from '../src/services/phone'
 import { hashPasswordStrong } from '../src/lib/ids'
-import { addDemoExtras, buildPublicDirectory, buildSeed, ensureSlots, slotPolicy } from '../src/data/seed'
+import { addDemoExtras, buildPublicDirectory, buildSeed, ensureSlots, slotPolicy, SPECIALTY_SERVICE } from '../src/data/seed'
 import { startReminderScheduler } from '../src/services/reminders'
 import type { Session } from '../src/types'
 // Register every operation
@@ -289,7 +289,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/sync') {
       const a = authed(req, url)
       const only = url.searchParams.get('tables')?.split(',').filter(Boolean) as TableName[] | undefined
-      return send(res, 200, { data: visibleData(a?.session.userId ?? null, only), userId: a?.session.userId ?? null, payments: payments.gateway.mode, simulator: !!payments.gateway.simulator })
+      return send(res, 200, { data: visibleData(a?.session.userId ?? null, only), userId: a?.session.userId ?? null, payments: payments.gateway.mode, simulator: !!payments.gateway.simulator, rules: accountRules })
     }
     if (url.pathname === '/api/events') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' })
@@ -393,7 +393,11 @@ async function main() {
   await database.query('delete from sessions where expires_at <= now()')
 
   // Email: Brevo (BREVO_API_KEY + MAIL_FROM), Gmail / any SMTP (SMTP_USER + SMTP_PASS), or Resend (RESEND_API_KEY + MAIL_FROM)
-  const appUrl = (process.env.APP_URL ?? '').replace(/\/?$/, '/')
+  // Links in emails must open this server's own copy of the app. Render tells us our address (RENDER_EXTERNAL_URL);
+  // an APP_URL pointing at GitHub (the repo or the browser-only demo) would send people to the wrong place.
+  const configured = (process.env.APP_URL ?? '').trim()
+  const appUrl = ((!configured || /github\.(com|io)/i.test(configured)) && process.env.RENDER_EXTERNAL_URL ? process.env.RENDER_EXTERNAL_URL : configured).replace(/\/?$/, '/')
+  if (configured && appUrl !== configured.replace(/\/?$/, '/')) console.warn(`[boot] APP_URL (${configured}) points at GitHub; email links use ${appUrl} instead`)
   const fromAddr = (name?: string, addr = process.env.MAIL_FROM ?? process.env.SMTP_USER ?? '') => {
     const bare = addr.replace(/^.*<([^>]+)>.*$/, '$1')
     return name ? `"${name.replace(/["\r\n]/g, '')} via Medic Hub" <${bare}>` : addr.includes('<') ? addr : `"Medic Hub" <${bare}>`
@@ -466,8 +470,28 @@ async function main() {
   }
   if (process.env.PAYSTACK_SECRET_KEY) {
     payments.gateway = paystackGateway()
-    payments.callbackUrl = (process.env.APP_URL ?? '').replace(/\/?$/, '/') + '?paystack=1'
+    payments.callbackUrl = appUrl + '?paystack=1'
     if (!process.env.APP_URL) console.warn('[boot] set APP_URL so Paystack can send patients back after paying')
+  }
+  // Accounts must confirm their email before using the app, but only when we can actually send that email
+  accountRules.verifiedEmailRequired = mailer.enabled && process.env.REQUIRE_EMAIL_CONFIRM !== '0'
+  // Demo: newly registered hospitals go live at once (DEMO_AUTO_VERIFY=0 restores manual review)
+  accountRules.demoAutoVerify = process.env.DEMO_EXTRAS !== '0' && process.env.DEMO_AUTO_VERIFY !== '0'
+  if (accountRules.demoAutoVerify) {
+    const waiting = db.select('hospitals').filter((h) => !h.publicRecord && ['pending', 'under_review', 'needs_attention'].includes(h.verification))
+    if (waiting.length) {
+      db.write(['hospitals', 'hospital_services', 'hospital_slots'], (d) => {
+        for (const h of d.hospitals) if (waiting.some((w) => w.id === h.id)) h.verification = 'verified'
+        // Hospitals that never set a price get starting prices so patients can book and pay in the demo
+        for (const w of waiting) {
+          const mine = d.hospital_services.filter((x) => x.hospitalId === w.id)
+          if (mine.some((x) => x.fee)) continue
+          mine.forEach((x) => { const ref = SPECIALTY_SERVICE[x.category]; if (x.bookable && ref?.fee) x.fee = ref.fee })
+        }
+        ensureSlots(d)
+      })
+      console.log(`[boot] demo: approved ${waiting.map((h) => h.name).join(', ')}`)
+    }
   }
   await database.flush()
   startReminderScheduler()

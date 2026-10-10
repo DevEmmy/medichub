@@ -14,7 +14,6 @@ import { OfflineBanner } from '../components/navigation/OfflineBanner'
 import { useNotificationToasts } from '../hooks/useNotificationToasts'
 import { cn } from '../utils/cn'
 import { A11yButton } from '../contexts/A11yContext'
-import { VerifyEmailBanner } from '../components/navigation/VerifyEmailBanner'
 
 const NAV = [
   { to: '/hospital', label: 'Overview', icon: LayoutDashboard, end: true },
@@ -73,7 +72,6 @@ export function HospitalLayout() {
   return (
     <div className="min-h-[100dvh] bg-[#F3F5F2]">
       <OfflineBanner />
-      <VerifyEmailBanner />
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[264px] bg-ink lg:block">{Side}</aside>
       <AnimatePresence>
         {drawer && (

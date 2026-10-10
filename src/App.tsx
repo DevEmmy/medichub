@@ -14,6 +14,7 @@ import { AdminLayout } from './layouts/AdminLayout'
 import { RequireRole } from './components/navigation/RequireRole'
 import { ScrollToTop } from './components/navigation/ScrollToTop'
 import { ServerWaking } from './components/navigation/ServerWaking'
+import { VerifyEmailGate } from './components/navigation/VerifyEmailGate'
 import { Spinner } from './components/ui/States'
 
 const Landing = lazy(() => import('./pages/public/Landing'))
@@ -82,6 +83,7 @@ export default function App() {
               <EmergencyProvider>
                 <CallSheetHost />
                 <Suspense fallback={<Loading />}>
+                  <VerifyEmailGate>
                   <Routes>
                     <Route path="/" element={<Landing />} />
                     <Route path="/login" element={<Login />} />
@@ -140,6 +142,7 @@ export default function App() {
                     <Route path="/home" element={<Navigate to="/" replace />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
+                  </VerifyEmailGate>
                 </Suspense>
               </EmergencyProvider>
             </LocationProvider>

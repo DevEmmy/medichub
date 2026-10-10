@@ -6,7 +6,7 @@ import type {
   Announcement, AnnouncementSeverity, Availability, Department, Doctor, EmergencyCapacity, EmergencyLevel, Hospital, HospitalCapacity,
   HospitalStatus, OverallCapacity, ResourceKey, Service, Slot, Verification,
 } from '../types'
-import { AppError, ENUMS, latency, myHospitalId, num, oneOf, requireHospitalStaff, requireRole, requireUser, text } from './core'
+import { AppError, ENUMS, accountRules, latency, myHospitalId, num, oneOf, requireHospitalStaff, requireRole, requireUser, text } from './core'
 import { notify } from './notifications'
 import { runAutomations } from './plans'
 import { ratingSummary, type RatingSummary } from './reviews'
@@ -336,7 +336,7 @@ export const submitOnboarding = rpc('hospitals.submitOnboarding', async function
       id, slug, name: input.name.trim(), type: input.type, tagline: input.tagline, description: input.description, address: input.address, area: input.area, city: input.city, state: input.state,
       lat: input.lat, lng: input.lng, phone: input.phone, emergencyPhone: input.emergencyPhone || input.phone, email: input.email, website: input.website, socials: [], hue: 160,
       is24h: input.is24h, hours: [0, 1, 2, 3, 4, 5, 6].map((day) => input.is24h ? { day, open: '00:00', close: '23:59', closed: false } : { day, open: day === 6 ? '09:00' : '08:00', close: day === 6 ? '15:00' : '18:00', closed: day === 0 }),
-      facilities: input.facilities, specialties: input.specialties, verification: 'pending', registration: input.registration, admin: input.admin, autoConfirm: true, ownerUserId: u.id,
+      facilities: input.facilities, specialties: input.specialties, verification: accountRules.demoAutoVerify ? 'verified' : 'pending', registration: input.registration, admin: input.admin, autoConfirm: true, ownerUserId: u.id,
       submittedAt: now, createdAt: now, updatedAt: now,
     })
     d.hospital_staff.push({ id: uid('st_'), hospitalId: id, userId: u.id, role: 'owner' })
@@ -345,7 +345,7 @@ export const submitOnboarding = rpc('hospitals.submitOnboarding', async function
       const m = SPECIALTY_SERVICE[sp]
       if (!m) return
       if (!depIds.has(m.dept)) { const did = uid('dp_'); depIds.set(m.dept, did); d.hospital_departments.push({ id: did, hospitalId: id, name: m.dept, status: 'open' }) }
-      d.hospital_services.push({ id: uid('sv_'), hospitalId: id, name: m.name, category: sp, departmentId: depIds.get(m.dept), durationMins: m.mins || 20, fee: undefined, bookable: m.bookable, active: true })
+      d.hospital_services.push({ id: uid('sv_'), hospitalId: id, name: m.name, category: sp, departmentId: depIds.get(m.dept), durationMins: m.mins || 20, fee: accountRules.demoAutoVerify ? m.fee : undefined, bookable: m.bookable, active: true })
     })
     const has = (sp: string) => input.specialties.includes(sp)
     d.hospital_status.push({ hospitalId: id, emergency: has('Emergency medicine') ? 'open' : 'closed', oxygen: input.facilities.includes('Oxygen plant') ? 'available' : 'limited', pharmacy: has('Pharmacy') ? 'available' : 'unavailable', laboratory: has('Laboratory') ? 'available' : 'unavailable', ambulance: input.facilities.includes('Ambulance') ? 'available' : 'unavailable', maternity: has('Obstetrics & Gynecology') ? 'available' : 'unavailable', theatre: input.facilities.includes('Theatre') ? 'available' : 'unavailable', bloodBank: input.facilities.includes('Blood bank') ? 'available' : 'unavailable', updatedAt: now })
@@ -353,7 +353,8 @@ export const submitOnboarding = rpc('hospitals.submitOnboarding', async function
     input.documents.forEach((doc) => d.hospital_documents.push({ id: uid('doc_'), hospitalId: id, name: doc.name, kind: doc.kind, size: doc.size, fileId: doc.fileId, uploadedAt: now, status: 'submitted' }))
     ensureSlots(d)
   })
-  notify(u.id, 'verification', 'Your verification documents were submitted', 'Our team reviews new facilities within 2 working days. You can set up your services and slots in the meantime.', '/hospital/verification')
+  if (accountRules.demoAutoVerify) notify(u.id, 'verification', 'Approved for the demo', `${input.name.trim()} is live: patients can find and book you now. Starting prices were filled in; change them under Hospital profile › Services.`, '/hospital')
+  else notify(u.id, 'verification', 'Your verification documents were submitted', 'Our team reviews new facilities within 2 working days. You can set up your services and slots in the meantime.', '/hospital/verification')
   db.select('users').filter((x) => x.role === 'admin').forEach((a) => notify(a.id, 'verification', 'New verification request', `${input.name} submitted documents for review.`, '/admin'))
   return id
 })
@@ -364,7 +365,7 @@ export const resubmitVerification = rpc('hospitals.resubmitVerification', async 
   const now = new Date().toISOString()
   db.write(['hospitals', 'hospital_documents'], (d) => {
     const h = d.hospitals.find((x) => x.id === hospitalId)!
-    h.verification = 'pending'; h.submittedAt = now; h.verificationNote = undefined
+    h.verification = accountRules.demoAutoVerify ? 'verified' : 'pending'; h.submittedAt = now; h.verificationNote = undefined
     docs.forEach((doc) => d.hospital_documents.push({ id: uid('doc_'), hospitalId, name: doc.name, kind: doc.kind, size: doc.size, fileId: doc.fileId, uploadedAt: now, status: 'submitted' }))
   })
   notify(u.id, 'verification', 'Your verification documents were submitted', 'We will review your updated documents shortly.', '/hospital/verification')
