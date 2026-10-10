@@ -77,7 +77,7 @@ function cors(req: IncomingMessage, res: ServerResponse) {
   if (o && (ORIGINS.includes('*') || ORIGINS.includes(o))) {
     res.setHeader('Access-Control-Allow-Origin', o)
     res.setHeader('Vary', 'Origin')
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-File-Name')
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   }
 }
