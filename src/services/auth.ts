@@ -74,7 +74,7 @@ function newVerification(userId: string): string {
 }
 
 /** Welcome email with a confirm-your-email button. Returns the token only when there is no email provider (demo). */
-async function sendWelcome(u: User): Promise<string | null> {
+async function sendWelcome(u: User, strict = false): Promise<string | null> {
   const token = newVerification(u.id)
   const hospital = u.role === 'hospital'
   if (!mailer.enabled) return IS_BROWSER ? token : null
@@ -90,7 +90,10 @@ async function sendWelcome(u: User): Promise<string | null> {
     footer: "If you didn't create a Medic Hub account, ignore this email and nothing will happen.",
   })
   try { await mailer.send({ to: u.email, subject: 'Welcome to Medic Hub: confirm your email', text: body, html }) }
-  catch (e) { console.error('[auth] welcome email failed', e) }
+  catch (e) {
+    console.error('[auth] welcome email failed', e)
+    if (strict) throw new AppError('unavailable', 'We could not send the email right now. Try again in a few minutes.')
+  }
   return null
 }
 
@@ -117,8 +120,10 @@ export const resendVerification = rpc('auth.resendVerification', async function 
   if (u.emailVerifiedAt) return {}
   const last = resendAt.get(u.id) ?? 0
   if (Date.now() - last < 60_000) throw new AppError('rate_limited', 'We just sent one. Wait a minute, and check your spam folder.')
+  // Be honest when a real server has no email provider: never say "sent" if nothing was sent
+  if (!IS_BROWSER && !mailer.enabled) { console.warn('[auth] confirmation email requested but email is not configured (set BREVO_API_KEY + MAIL_FROM)'); throw new AppError('unavailable', 'Confirmation emails are not switched on for this site yet. Please try again later.') }
   resendAt.set(u.id, Date.now())
-  const t = await sendWelcome(u)
+  const t = await sendWelcome(u, true)
   return t ? { demoVerifyToken: t } : {}
 })
 
@@ -148,7 +153,7 @@ export const requestPasswordReset = rpc('auth.requestPasswordReset', async funct
     return { token: null }
   }
   // Never hand the reset link to the browser when running as a real server
-  if (!IS_BROWSER) { console.warn('[auth] password reset requested but email is not configured (set SMTP_USER/SMTP_PASS or RESEND_API_KEY/MAIL_FROM)'); throw new AppError('unavailable', 'Password reset emails are not switched on for this site yet. Please contact support.') }
+  if (!IS_BROWSER) { console.warn('[auth] password reset requested but email is not configured (set BREVO_API_KEY + MAIL_FROM)'); throw new AppError('unavailable', 'Password reset emails are not switched on for this site yet. Please contact support.') }
   return { token }
 })
 
