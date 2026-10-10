@@ -394,6 +394,17 @@ async function main() {
     })
     mailer.enabled = true; mailer.appUrl = appUrl
     mailer.send = async (m) => { await transport.sendMail({ from: fromAddr(m.fromName), to: m.to, subject: m.subject, text: m.text, html: m.html, replyTo: m.replyTo }) }
+  } else if (process.env.BREVO_API_KEY && process.env.MAIL_FROM) {
+    // Brevo's HTTPS API: free 300 emails a day, and works on hosts that block email ports (e.g. Render free)
+    mailer.enabled = true; mailer.appUrl = appUrl
+    mailer.send = async (m) => {
+      const from = process.env.MAIL_FROM!; const email = from.replace(/^.*<([^>]+)>.*$/, '$1').trim()
+      const r = await fetch(`${process.env.BREVO_BASE_URL ?? 'https://api.brevo.com'}/v3/smtp/email`, {
+        method: 'POST', headers: { 'api-key': process.env.BREVO_API_KEY!, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ sender: { email, name: m.fromName ? `${m.fromName} via Medic Hub` : 'Medic Hub' }, to: [{ email: m.to }], subject: m.subject, textContent: m.text, htmlContent: m.html ?? `<pre>${m.text.replace(/</g, '&lt;')}</pre>`, ...(m.replyTo ? { replyTo: { email: m.replyTo } } : {}) }),
+      })
+      if (!r.ok) throw new Error(`email failed: ${r.status} ${await r.text().catch(() => '')}`)
+    }
   } else if (process.env.RESEND_API_KEY && process.env.MAIL_FROM) {
     mailer.enabled = true; mailer.appUrl = appUrl
     mailer.send = async (m) => {
@@ -419,6 +430,8 @@ async function main() {
   }
   await database.flush()
   startReminderScheduler()
+  // A tiny query every 6 hours so free databases (e.g. Supabase) don't count the project as inactive
+  setInterval(() => { database.query('select 1').catch((e) => console.error('[db] keepalive failed', e)) }, 6 * 3600_000)
   server.listen(PORT, () => console.log(`[boot] Medic Hub on :${PORT} · database: ${database.kind} · email: ${mailer.enabled ? 'on' : 'off'} · AI: ${process.env.ANTHROPIC_API_KEY || process.env.AI_API_KEY ? 'on' : 'off'} · sms: ${smsGateway.enabled ? 'on' : 'off'} · payments: ${payments.gateway.mode} · ${db.select('hospitals').length} hospitals`))
 }
 
